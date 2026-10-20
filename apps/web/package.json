@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "@netlab/labs": "*",
     "@netlab/sim": "*",
     "@xterm/addon-fit": "^0.11.0",

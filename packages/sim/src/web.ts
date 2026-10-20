@@ -37,8 +37,8 @@ export function browse(net: Network, fromId: string, rawUrl: string): WebRespons
   if (!r.success) {
     return { ok: false, url, error: 'Request Timeout', detail: r.reason ?? `${host} did not respond.` };
   }
-  const target = r.hops[r.hops.length - 1];
-  const dev = target ? net.devices.get(target.device) : undefined;
+  // No hops means the address is the browser's own machine.
+  const dev = net.devices.get(r.hops[r.hops.length - 1]?.device ?? fromId);
   if (!dev || dev.kind !== 'server') {
     return {
       ok: false,

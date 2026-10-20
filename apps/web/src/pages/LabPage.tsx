@@ -1,9 +1,10 @@
 import { getLab, levelFor, xpAward, type Lab } from '@netlab/labs';
 import { evaluateAll, Network, type LogEntry } from '@netlab/sim';
-import { ArrowLeft, Check, CircleCheck, Lightbulb, ListChecks, RotateCcw, Send, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, Check, CircleCheck, Lightbulb, ListChecks, RotateCcw, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, type Me, type SubmitResult } from '../api.ts';
 import { Briefing, Inline } from '../components/Briefing.tsx';
+import { LedMeter } from '../components/LevelCard.tsx';
 import { Stage } from '../components/Stage.tsx';
 import type { Positions } from '../components/TopologyCanvas.tsx';
 
@@ -59,8 +60,11 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
 
   useEffect(() => {
     if (!lab) return;
+    // A superseded load (e.g. a remount) must not overwrite commands typed since.
+    let stale = false;
     api.attempt(lab.id).then(
       (a) => {
+        if (stale) return;
         logRef.current = a.log;
         netRef.current = Network.replay(lab.topology, a.log);
         setHintsUsed(a.hintsUsed);
@@ -68,7 +72,7 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
         setRestored(a.log.length);
         setReady(true);
       },
-      (e) => setError(e instanceof ApiError ? e.message : "Couldn't load your progress."),
+      (e) => !stale && setError(e instanceof ApiError ? e.message : "Couldn't load your progress."),
     );
     const onHide = () => flush(true);
     // Browsers reserve Ctrl+W for closing the tab; ask before leaving mid-lab.
@@ -78,6 +82,7 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
     addEventListener('pagehide', onHide);
     addEventListener('beforeunload', onBeforeUnload);
     return () => {
+      stale = true;
       removeEventListener('pagehide', onHide);
       removeEventListener('beforeunload', onBeforeUnload);
       flush(true);
@@ -107,7 +112,6 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
   const live = net ? evaluateAll(net, lab.objectives.map((o) => o.check)) : [];
   const doneCount = live.filter(Boolean).length;
   const alreadyDone = completed || me.completions.some((c) => c.labId === lab.id);
-  const pct = lab.objectives.length ? (doneCount / lab.objectives.length) * 100 : 0;
 
   const onLine = (device: string, line: string) => {
     if (!netRef.current) return '';
@@ -168,47 +172,43 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
         </a>
         <div className="ws-title">
           <h1>{lab.title}</h1>
-          <div className="chips">
-            <span className={`chip ${lab.difficulty.toLowerCase()}`}>{lab.difficulty}</span>
-            <span className="chip">{lab.ccnaDomain}</span>
+          <span className="meta">
+            <span className={`tag ${lab.difficulty.toLowerCase()}`}>{lab.difficulty}</span>
+            <span className="hide-sm">{lab.ccnaDomain}</span>
             {alreadyDone ? (
-              <span className="chip success">
-                <Check size={13} /> Completed
+              <span className="done-mark">
+                <Check size={13} strokeWidth={3} /> Completed
               </span>
             ) : (
-              <span className="chip xp">
-                <Sparkles size={13} /> {xpAward(lab.xp, hintsUsed)} XP
-              </span>
+              <span className="mono xp-text">{xpAward(lab.xp, hintsUsed)} XP</span>
             )}
-          </div>
+          </span>
         </div>
-        <div className="ws-progress" title={`${doneCount} of ${lab.objectives.length} objectives`}>
-          <div className="bar">
-            <span style={{ width: `${pct}%` }} />
-          </div>
-          <span className="small muted">
+        <div className="ws-progress" title={`${doneCount} of ${lab.objectives.length} objectives met`}>
+          <LedMeter lit={doneCount} total={lab.objectives.length} label="Objectives met" />
+          <span className="mono small">
             {doneCount}/{lab.objectives.length}
           </span>
         </div>
-        <button className="btn ghost" onClick={reset} disabled={!ready}>
-          <RotateCcw size={16} /> <span className="hide-sm">Reset</span>
+        <button className="btn ghost small" onClick={reset} disabled={!ready}>
+          <RotateCcw size={15} /> <span className="hide-sm">Reset</span>
         </button>
-        <button className="btn primary" onClick={() => void submit()} disabled={busy || !ready}>
-          <Send size={16} /> {busy ? 'Checking…' : 'Submit'}
+        <button className="btn accent" onClick={() => void submit()} disabled={busy || !ready}>
+          <Send size={15} /> {busy ? 'Checking…' : 'Submit'}
         </button>
       </header>
 
       <div className="ws-body">
         <aside className="ws-panel">
-          <div className="seg" role="tablist" aria-label="Lab panel">
+          <div className="tabs" role="tablist" aria-label="Lab panel">
             <button role="tab" aria-selected={tab === 'task'} onClick={() => setTab('task')}>
               Task
             </button>
             <button role="tab" aria-selected={tab === 'objectives'} onClick={() => setTab('objectives')}>
-              Objectives <span className="count">{doneCount}/{lab.objectives.length}</span>
+              Objectives <span className="count mono">{doneCount}/{lab.objectives.length}</span>
             </button>
             <button role="tab" aria-selected={tab === 'hints'} onClick={() => setTab('hints')}>
-              Hints {hintsUsed > 0 && <span className="count">{hintsUsed}</span>}
+              Hints {hintsUsed > 0 && <span className="count mono">{hintsUsed}</span>}
             </button>
           </div>
 
@@ -244,8 +244,8 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
             {tab === 'task' && (
               <>
                 <Briefing text={lab.briefing} />
-                <div className="tip-box">
-                  <strong>How to work</strong>
+                <div className="note">
+                  <h2 className="label-caps">How to work</h2>
                   <ul>
                     <li>Double-click a switch or router to open its console below.</li>
                     <li>Double-click a PC to open its desktop.</li>
@@ -300,6 +300,7 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
             positions={positions}
             onMove={(id, x, y) => setPositions((p) => ({ ...p, [id]: { x, y } }))}
             onResetLayout={() => setPositions(specPositions(lab))}
+            onMutate={() => setTick((t) => t + 1)}
           />
         ) : (
           <div className="stage center muted">{error ? '' : 'Loading lab…'}</div>

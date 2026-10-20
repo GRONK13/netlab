@@ -1,4 +1,3 @@
-import { Boxes, SquareTerminal, Trophy } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api.ts';
 import { Logo } from '../components/Logo.tsx';
@@ -29,35 +28,27 @@ export function AuthPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
   return (
     <div className="auth">
       <section className="auth-hero">
-        <div className="brand big">
-          <Logo size={40} />
-          NetLab
-        </div>
-        <h1>Learn networking by configuring real IOS.</h1>
-        <p className="lead">Graded labs in your browser, Packet Tracer style. Earn XP, level up, and get CCNA ready.</p>
+        <Logo />
+        <h1>Configure real networks. Get graded on the spot.</h1>
+        <p className="lead">
+          Cisco IOS practice labs in the browser, built for USC students preparing for the CCNA.
+        </p>
         <pre className="hero-cli" aria-hidden="true">
-          <span className="p">SW1#</span> conf t{'\n'}
+          <span className="p">SW1#</span> configure terminal{'\n'}
           <span className="p">SW1(config)#</span> vlan 10{'\n'}
           <span className="p">SW1(config-vlan)#</span> name SALES{'\n'}
           <span className="p">SW1(config-vlan)#</span> end{'\n'}
-          <span className="ok">✓ VLAN 10 exists and is named SALES   +150 XP</span>
+          <span className="c">! objective met: VLAN 10 is named SALES  [+150 XP]</span>
         </pre>
         <ul className="features">
-          <li>
-            <SquareTerminal size={18} /> Real IOS commands, <code>?</code> help and Tab completion
-          </li>
-          <li>
-            <Boxes size={18} /> A sandbox to build your own topologies
-          </li>
-          <li>
-            <Trophy size={18} /> XP, ranks and a class leaderboard
-          </li>
+          <li>Real IOS syntax with <code>?</code> help, Tab completion and <code>--More--</code></li>
+          <li>Simulated PCs with a desktop, command prompt and web browser</li>
+          <li>A sandbox for building your own topologies</li>
         </ul>
       </section>
 
-      <form className="card auth-card" onSubmit={(e) => void submit(e)}>
-        <h2>{mode === 'login' ? 'Sign in' : 'Create your account'}</h2>
-        <div className="seg" role="tablist">
+      <form className="panel auth-card" onSubmit={(e) => void submit(e)}>
+        <div className="tabs" role="tablist">
           <button type="button" role="tab" aria-selected={mode === 'login'} onClick={() => setMode('login')}>
             Sign in
           </button>
@@ -85,7 +76,7 @@ export function AuthPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
             required
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           />
-          {mode === 'register' && <span className="muted small">At least 8 characters.</span>}
+          {mode === 'register' && <span className="hint">At least 8 characters.</span>}
         </label>
         {error && <p className="error">{error}</p>}
         <button className="btn primary block" disabled={busy}>

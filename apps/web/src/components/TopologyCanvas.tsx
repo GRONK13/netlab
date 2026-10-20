@@ -1,6 +1,6 @@
-import { shortName, type DeviceKind, type Network } from '@netlab/sim';
+import { isEndpoint, shortName, type DeviceKind, type Network } from '@netlab/sim';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { DeviceShape, IconDefs, MODEL_LABEL } from './DeviceIcon.tsx';
+import { DeviceShape, displayName, IconDefs } from './DeviceIcon.tsx';
 
 /** World units: device x/y are percentages, mapped onto a 1000 x 500 canvas. */
 const WX = 10;
@@ -24,7 +24,7 @@ interface Props {
   cableMode?: boolean;
   cableFrom?: string | null;
   onCablePick?: (id: string, clientX: number, clientY: number) => void;
-  onDropDevice?: (kind: DeviceKind, x: number, y: number) => void;
+  onDropDevice?: (kind: DeviceKind, x: number, y: number, model?: string) => void;
 }
 
 interface ViewBox {
@@ -201,11 +201,12 @@ export function TopologyCanvas(props: Props) {
         if (props.onDropDevice && e.dataTransfer.types.includes(DND_TYPE)) e.preventDefault();
       }}
       onDrop={(e) => {
-        const kind = e.dataTransfer.getData(DND_TYPE) as DeviceKind;
+        // Payload is "kind:model", e.g. "router:1941".
+        const [kind, model] = e.dataTransfer.getData(DND_TYPE).split(':') as [DeviceKind, string | undefined];
         if (!kind || !props.onDropDevice) return;
         e.preventDefault();
         const w = toWorld(e.clientX, e.clientY);
-        props.onDropDevice(kind, w.x / WX, w.y / WY);
+        props.onDropDevice(kind, w.x / WX, w.y / WY, model);
       }}
       role="application"
       aria-label="Network topology. Drag devices to rearrange; double-click to open."
@@ -279,7 +280,7 @@ export function TopologyCanvas(props: Props) {
         const p = at(d.id);
         const dev = net.device(d.id);
         const isSel = selected?.kind === 'device' && selected.id === d.id;
-        const sub = d.kind === 'pc' ? (dev.running.pc?.ip ?? 'No IP') : MODEL_LABEL[d.kind];
+        const sub = isEndpoint(d.kind) ? (dev.running.pc?.ip ?? 'No IP') : dev.model;
         return (
           <g
             key={d.id}
@@ -287,7 +288,7 @@ export function TopologyCanvas(props: Props) {
             className={`node${isSel ? ' selected' : ''}${cableFrom === d.id ? ' cable-from' : ''}`}
             tabIndex={0}
             role="button"
-            aria-label={`${dev.running.hostname}, ${d.kind}. Press Enter to open.`}
+            aria-label={`${displayName(dev)}, ${d.kind}. Press Enter to open.`}
             onPointerDown={(e) => onDevicePointerDown(e, d.id)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') props.onOpen(d.id);
@@ -297,7 +298,7 @@ export function TopologyCanvas(props: Props) {
             <rect x="-46" y="-34" width="92" height="92" rx="14" className="halo" />
             <DeviceShape kind={d.kind} />
             <text y="36" className="node-name" textAnchor="middle">
-              {dev.running.hostname}
+              {displayName(dev)}
             </text>
             <text y="50" className="node-sub" textAnchor="middle">
               {sub}

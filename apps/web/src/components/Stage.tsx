@@ -1,4 +1,4 @@
-import { physicalPorts, shortName, type DeviceKind, type LinkEnd, type Network } from '@netlab/sim';
+import { hasIos, isEndpoint, shortName, type DeviceKind, type LinkEnd, type Network } from '@netlab/sim';
 import {
   Cable,
   ChevronDown,
@@ -11,14 +11,14 @@ import {
   Tag,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { DeviceGlyph } from './DeviceIcon.tsx';
+import { DeviceGlyph, displayName } from './DeviceIcon.tsx';
 import { DeviceTerminal } from './DeviceTerminal.tsx';
 import { Inspector } from './Inspector.tsx';
-import { PcWindow } from './PcWindow.tsx';
+import { PcWindow } from './pc/PcWindow.tsx';
 import { TopologyCanvas, type Positions, type Selection } from './TopologyCanvas.tsx';
 
 export interface SandboxActions {
-  onDrop: (kind: DeviceKind, x: number, y: number) => string | null;
+  onDrop: (kind: DeviceKind, x: number, y: number, model?: string) => string | null;
   onConnect: (a: LinkEnd, b: LinkEnd) => string | null;
   onDeleteDevice: (id: string) => void;
   onDeleteLink: (index: number) => void;
@@ -36,6 +36,8 @@ interface Props {
   onMoveEnd?: () => void;
   onResetLayout?: () => void;
   sandbox?: SandboxActions;
+  /** A device's config was changed directly (e.g. a server's web page). */
+  onMutate?: () => void;
 }
 
 interface KeyboardLock {
@@ -46,11 +48,11 @@ interface KeyboardLock {
 const keyboard = () => (navigator as Navigator & { keyboard?: KeyboardLock }).keyboard;
 
 /** Canvas + inspector + PC desktop + console dock. Shared by labs and the sandbox. */
-export function Stage({ net, onLine, epoch, restored, positions, onMove, onMoveEnd, onResetLayout, sandbox }: Props) {
+export function Stage({ net, onLine, epoch, restored, positions, onMove, onMoveEnd, onResetLayout, sandbox, onMutate }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Selection>(null);
   const [openPc, setOpenPc] = useState<string | null>(null);
-  const consoles = net.topology.devices.filter((d) => d.kind !== 'pc').map((d) => d.id);
+  const consoles = net.topology.devices.filter((d) => hasIos(d.kind)).map((d) => d.id);
   const [active, setActive] = useState<string | null>(consoles[0] ?? null);
   const [fitSignal, setFitSignal] = useState(0);
   const [showPorts, setShowPorts] = useState(true);
@@ -103,9 +105,11 @@ export function Stage({ net, onLine, epoch, restored, positions, onMove, onMoveE
   const open = (id: string) => {
     const dev = net.devices.get(id);
     if (!dev) return;
-    if (dev.kind === 'pc') {
+    if (isEndpoint(dev.kind)) {
       setOpenPc(id);
       setSelected(null);
+    } else if (dev.kind === 'hub') {
+      setSelected({ kind: 'device', id });
     } else {
       setActive(id);
       setCollapsed(false);
@@ -180,8 +184,8 @@ export function Stage({ net, onLine, epoch, restored, positions, onMove, onMoveE
           }}
           onDropDevice={
             sandbox
-              ? (kind, x, y) => {
-                  const err = sandbox.onDrop(kind, x, y);
+              ? (kind, x, y, model) => {
+                  const err = sandbox.onDrop(kind, x, y, model);
                   if (err) setToast({ ok: false, text: err });
                 }
               : undefined
@@ -257,7 +261,6 @@ export function Stage({ net, onLine, epoch, restored, positions, onMove, onMoveE
           }
         />
 
-        {pc && <PcWindow key={pc} net={net} pcId={pc} onLine={(line) => onLine(pc, line)} onClose={() => setOpenPc(null)} />}
       </div>
 
       {portMenu && (
@@ -268,7 +271,7 @@ export function Stage({ net, onLine, epoch, restored, positions, onMove, onMoveE
               ✕
             </button>
           </div>
-          {physicalPorts(net.device(portMenu.id).kind).map((p) => {
+          {net.device(portMenu.id).ports.map((p) => {
             const used = !!net.peer(portMenu.id, p);
             return (
               <button key={p} role="menuitem" disabled={used} onClick={() => pickPort(portMenu.id, p)}>
@@ -278,6 +281,17 @@ export function Stage({ net, onLine, epoch, restored, positions, onMove, onMoveE
             );
           })}
         </div>
+      )}
+
+      {pc && (
+        <PcWindow
+          key={pc}
+          net={net}
+          id={pc}
+          onLine={(line) => onLine(pc, line)}
+          onMutate={() => onMutate?.()}
+          onClose={() => setOpenPc(null)}
+        />
       )}
 
       {toast && (
@@ -301,7 +315,7 @@ export function Stage({ net, onLine, epoch, restored, positions, onMove, onMoveE
                 }}
               >
                 <DeviceGlyph kind={net.device(id).kind} size={22} />
-                {net.device(id).running.hostname}
+                {displayName(net.device(id))}
               </button>
             ))}
             {consoles.length === 0 && <span className="muted small">Add a switch or router to open a console.</span>}

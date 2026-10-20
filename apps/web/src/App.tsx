@@ -1,6 +1,7 @@
 import { Boxes, LayoutGrid, LogOut, Trophy } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, type Me } from './api.ts';
+import { LedMeter } from './components/LevelCard.tsx';
 import { Logo } from './components/Logo.tsx';
 import { AuthPage } from './pages/AuthPage.tsx';
 import { Dashboard } from './pages/Dashboard.tsx';
@@ -78,7 +79,6 @@ export function App() {
       <aside className="sidebar">
         <a href="#/" className="brand" aria-label="NetLab home">
           <Logo />
-          <span className="label">NetLab</span>
         </a>
         <nav aria-label="Main">
           {NAV.map(({ href, page, label, Icon }) => {
@@ -96,12 +96,10 @@ export function App() {
             <span className="avatar">{initials}</span>
             <div className="label">
               <div className="user-name">{me.user.displayName}</div>
-              <div className="muted small">
-                Lv {me.level.level} · {me.level.xp} XP
+              <div className="user-meta mono">
+                LV{String(me.level.level).padStart(2, '0')} · {me.level.xp} XP
               </div>
-              <div className="bar thin">
-                <span style={{ width: `${me.level.progress * 100}%` }} />
-              </div>
+              <LedMeter lit={Math.round(me.level.progress * 10)} total={10} label="Level progress" />
             </div>
           </div>
           <button className="nav-item" onClick={() => void signOut()} title="Sign out">

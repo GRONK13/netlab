@@ -151,6 +151,11 @@ describe('web browser', () => {
     expect(browse(n, 'PC0', 'www.netlab.local')).toMatchObject({ ok: false, error: "This site can't be reached" });
   });
 
+  it('lets a server browse its own address', () => {
+    const r = browse(lan(), 'Server0', 'http://192.168.0.100');
+    expect(r.ok && r.page.title).toBe('Welcome to Server0');
+  });
+
   it('serves a custom page', () => {
     const n = lan();
     n.device('Server0').running.http = { title: 'Intranet', body: 'Hello' };

@@ -16,14 +16,16 @@ interface Props {
 }
 
 const THEME = {
-  background: '#0b1020',
-  foreground: '#d7deea',
-  cursor: '#7dd3fc',
-  cursorAccent: '#0b1020',
-  selectionBackground: '#33507a',
-  green: '#4ade80',
-  brightBlack: '#64748b',
+  background: '#161512',
+  foreground: '#e6e1d6',
+  cursor: '#f76707',
+  cursorAccent: '#161512',
+  selectionBackground: '#4a4337',
+  green: '#69db7c',
+  brightBlack: '#8a8478',
 };
+
+const FONT = '"IBM Plex Mono", Consolas, "Courier New", monospace';
 
 const MORE = ' --More-- ';
 
@@ -43,9 +45,9 @@ export function DeviceTerminal({ net, deviceId, active, intro, onLine, clearSign
     const term = new Terminal({
       cursorBlink: true,
       convertEol: true,
-      fontFamily: '"Cascadia Mono", "JetBrains Mono", ui-monospace, Consolas, "Courier New", monospace',
+      fontFamily: `${FONT}, ui-monospace`,
       fontSize: 14,
-      lineHeight: 1.15,
+      lineHeight: 1.2,
       scrollback: 3000,
       theme: THEME,
     });
@@ -54,6 +56,12 @@ export function DeviceTerminal({ net, deviceId, active, intro, onLine, clearSign
     term.open(host.current!);
     termRef.current = term;
     fitRef.current = fit;
+    // xterm measures character width when it opens; re-measure once the web font has loaded.
+    void document.fonts?.load('14px "IBM Plex Mono"').then(() => {
+      if (termRef.current !== term) return;
+      term.options.fontFamily = FONT;
+      if (host.current?.offsetParent) fit.fit();
+    });
 
     const ed = new LineEditor();
     let paging: string[] | null = null;

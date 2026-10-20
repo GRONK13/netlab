@@ -1,6 +1,6 @@
-import { physicalPorts, shortName, type Network } from '@netlab/sim';
+import { isEndpoint, modelInfo, shortName, type Network } from '@netlab/sim';
 import { Cable, Monitor, SquareTerminal, Trash2, X } from 'lucide-react';
-import { DeviceGlyph, MODEL_LABEL } from './DeviceIcon.tsx';
+import { DeviceGlyph } from './DeviceIcon.tsx';
 import type { Selection } from './TopologyCanvas.tsx';
 
 interface Props {
@@ -26,10 +26,13 @@ export function Inspector({ net, selection, onClose, onOpen, onDeleteDevice, onD
     if (!l) return null;
     const name = (id: string) => net.device(id).running.hostname;
     return (
-      <div className="inspector card">
+      <div className="inspector panel">
         <div className="inspector-head">
           <Cable size={18} />
-          <strong>Cable</strong>
+          <div>
+            <strong>Cable</strong>
+            <div className="mono muted small">Copper straight-through</div>
+          </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <X size={16} />
           </button>
@@ -47,11 +50,12 @@ export function Inspector({ net, selection, onClose, onOpen, onDeleteDevice, onD
             ))}
           </tbody>
         </table>
-        <p className="muted small">Copper straight-through</p>
         {onDeleteLink && (
-          <button className="btn danger small" onClick={() => onDeleteLink(selection.index)}>
-            <Trash2 size={14} /> Remove cable
-          </button>
+          <div className="inspector-actions">
+            <button className="btn danger small" onClick={() => onDeleteLink(selection.index)}>
+              <Trash2 size={14} /> Remove cable
+            </button>
+          </div>
         )}
       </div>
     );
@@ -60,15 +64,16 @@ export function Inspector({ net, selection, onClose, onOpen, onDeleteDevice, onD
   const dev = net.devices.get(selection.id);
   if (!dev) return null;
   const cfg = dev.running;
+  const endpoint = isEndpoint(dev.kind);
 
   return (
-    <div className="inspector card">
+    <div className="inspector panel">
       <div className="inspector-head">
         <DeviceGlyph kind={dev.kind} size={30} />
         <div>
           <strong>{cfg.hostname}</strong>
-          <div className="muted small">
-            {MODEL_LABEL[dev.kind]} · {dev.id}
+          <div className="mono muted small">
+            {modelInfo(dev.spec).label} · {dev.id}
           </div>
         </div>
         <button className="icon-btn" onClick={onClose} aria-label="Close">
@@ -76,11 +81,11 @@ export function Inspector({ net, selection, onClose, onOpen, onDeleteDevice, onD
         </button>
       </div>
 
-      {dev.kind === 'pc' ? (
+      {endpoint ? (
         <dl className="facts">
           <dt>Link</dt>
           <dd>
-            <Dot up={net.linkUp(dev.id, 'FastEthernet0')} /> FastEthernet0
+            <Dot up={net.linkUp(dev.id, 'FastEthernet0')} /> Fa0
             {net.peer(dev.id, 'FastEthernet0') &&
               ` → ${net.device(net.peer(dev.id, 'FastEthernet0')!.device).running.hostname}`}
           </dd>
@@ -98,13 +103,13 @@ export function Inspector({ net, selection, onClose, onOpen, onDeleteDevice, onD
               <tr>
                 <th />
                 <th>Port</th>
-                <th>{dev.kind === 'switch' ? 'VLAN' : 'IP address'}</th>
+                {dev.kind !== 'hub' && <th>{dev.kind === 'switch' ? 'VLAN' : 'IP address'}</th>}
                 <th>Connected to</th>
               </tr>
             </thead>
             <tbody>
               {Object.values(cfg.interfaces)
-                // Routers have few ports, so show all; switches only show cabled ports.
+                // Routers have few ports, so show all; switches and hubs only show cabled ports.
                 .filter((i) => dev.kind === 'router' || !!net.peer(dev.id, i.name))
                 .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
                 .map((i) => {
@@ -115,17 +120,19 @@ export function Inspector({ net, selection, onClose, onOpen, onDeleteDevice, onD
                         <Dot up={net.ifaceUp(dev.id, i.name)} />
                       </td>
                       <td className="mono">{shortName(i.name)}</td>
-                      <td className="mono">
-                        {dev.kind === 'switch'
-                          ? i.mode === 'trunk'
-                            ? 'trunk'
-                            : (i.accessVlan ?? 1)
-                          : i.ip
-                            ? `${i.ip.address}${i.encapsulationVlan ? ` (VLAN ${i.encapsulationVlan})` : ''}`
-                            : i.shutdown
-                              ? 'shut down'
-                              : '—'}
-                      </td>
+                      {dev.kind !== 'hub' && (
+                        <td className="mono">
+                          {dev.kind === 'switch'
+                            ? i.mode === 'trunk'
+                              ? 'trunk'
+                              : (i.accessVlan ?? 1)
+                            : i.ip
+                              ? `${i.ip.address}${i.encapsulationVlan ? ` (VLAN ${i.encapsulationVlan})` : ''}`
+                              : i.shutdown
+                                ? 'shut down'
+                                : '—'}
+                        </td>
+                      )}
                       <td className="muted">
                         {i.name.includes('.') ? 'subinterface' : peer ? net.device(peer.device).running.hostname : ''}
                       </td>
@@ -134,23 +141,29 @@ export function Inspector({ net, selection, onClose, onOpen, onDeleteDevice, onD
                 })}
             </tbody>
           </table>
-          {dev.kind === 'switch' && (
-            <p className="muted small">Only ports with a cable are listed. {physicalPorts('switch').length} ports total.</p>
+          {dev.kind !== 'router' && (
+            <p className="muted small">
+              Cabled ports only · {dev.ports.length} ports total
+            </p>
           )}
         </div>
       )}
 
-      <div className="inspector-actions">
-        <button className="btn primary small" onClick={() => onOpen(dev.id)}>
-          {dev.kind === 'pc' ? <Monitor size={14} /> : <SquareTerminal size={14} />}
-          {dev.kind === 'pc' ? 'Open PC' : 'Open console'}
-        </button>
-        {onDeleteDevice && (
-          <button className="btn danger small" onClick={() => onDeleteDevice(dev.id)}>
-            <Trash2 size={14} /> Delete
-          </button>
-        )}
-      </div>
+      {(dev.kind !== 'hub' || onDeleteDevice) && (
+        <div className="inspector-actions">
+          {dev.kind !== 'hub' && (
+            <button className="btn primary small" onClick={() => onOpen(dev.id)}>
+              {endpoint ? <Monitor size={14} /> : <SquareTerminal size={14} />}
+              {endpoint ? (dev.kind === 'printer' ? 'Open settings' : 'Open desktop') : 'Open console'}
+            </button>
+          )}
+          {onDeleteDevice && (
+            <button className="btn danger small" onClick={() => onDeleteDevice(dev.id)}>
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

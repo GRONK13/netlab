@@ -1,15 +1,15 @@
-import { LIMITS, Network, type DeviceKind } from '@netlab/sim';
-import { CloudCheck, CloudUpload, Plus, Trash2 } from 'lucide-react';
+import { LIMITS, MODELS, Network, type DeviceKind, type DeviceModel } from '@netlab/sim';
+import { Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.ts';
-import { DeviceGlyph, KIND_LABEL, MODEL_LABEL } from '../components/DeviceIcon.tsx';
+import { DeviceGlyph } from '../components/DeviceIcon.tsx';
 import { Stage } from '../components/Stage.tsx';
 import { DND_TYPE, type Positions } from '../components/TopologyCanvas.tsx';
 
-const PALETTE: { kind: DeviceKind; blurb: string }[] = [
-  { kind: 'router', blurb: '3 Gigabit ports' },
-  { kind: 'switch', blurb: '24 Fast + 2 Gigabit ports' },
-  { kind: 'pc', blurb: 'Desktop with IP config and Command Prompt' },
+const GROUPS: { title: string; kinds: DeviceKind[] }[] = [
+  { title: 'Routers', kinds: ['router'] },
+  { title: 'Switching', kinds: ['switch', 'hub'] },
+  { title: 'End devices', kinds: ['pc', 'laptop', 'server', 'printer'] },
 ];
 
 const empty = () => new Network({ devices: [], links: [] });
@@ -20,6 +20,7 @@ export function SandboxPage() {
   const [, setTick] = useState(0);
   const [epoch, setEpoch] = useState(0);
   const [status, setStatus] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
+  const [error, setError] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const dirty = useRef(false);
 
@@ -45,8 +46,11 @@ export function SandboxPage() {
   }, [save]);
 
   useEffect(() => {
+    // A superseded load (e.g. a remount) must not overwrite edits made since.
+    let stale = false;
     api.sandbox().then(
       ({ snapshot }) => {
+        if (stale) return;
         try {
           netRef.current = snapshot ? Network.fromSnapshot(snapshot) : empty();
         } catch {
@@ -55,6 +59,7 @@ export function SandboxPage() {
         setStatus('saved');
       },
       () => {
+        if (stale) return;
         netRef.current = empty();
         setStatus('error');
       },
@@ -62,6 +67,7 @@ export function SandboxPage() {
     const onHide = () => save(true);
     addEventListener('pagehide', onHide);
     return () => {
+      stale = true;
       removeEventListener('pagehide', onHide);
       save(true);
     };
@@ -72,17 +78,20 @@ export function SandboxPage() {
 
   const positions: Positions = Object.fromEntries(net.topology.devices.map((d) => [d.id, { x: d.x, y: d.y }]));
 
-  const add = (kind: DeviceKind, x?: number, y?: number): string | null => {
+  const add = (kind: DeviceKind, model?: string, x?: number, y?: number): string | null => {
     try {
       const n = net.topology.devices.length;
       // Staggered grid, so cables between neighbours don't run behind other devices.
       const col = n % 4;
       const row = Math.floor(n / 4);
-      net.addDevice(kind, x ?? 20 + col * 20, y ?? 20 + row * 25 + (col % 2) * 10);
+      net.addDevice(kind, x ?? 20 + col * 20, y ?? 20 + row * 25 + (col % 2) * 10, model);
+      setError('');
       changed();
       return null;
     } catch (e) {
-      return e instanceof Error ? e.message : 'Could not add the device.';
+      const msg = e instanceof Error ? e.message : 'Could not add the device.';
+      setError(msg);
+      return msg;
     }
   };
 
@@ -93,69 +102,66 @@ export function SandboxPage() {
     changed();
   };
 
+  const item = (m: DeviceModel) => (
+    <button
+      key={m.model}
+      className="palette-item"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(DND_TYPE, `${m.kind}:${m.model}`);
+        e.dataTransfer.effectAllowed = 'copy';
+      }}
+      onClick={() => add(m.kind, m.model)}
+      title={`${m.label}: ${m.description}. Click to add, or drag onto the canvas.`}
+    >
+      <DeviceGlyph kind={m.kind} size={40} />
+      <span className="palette-text">
+        <span className="palette-name">{m.label}</span>
+        <span className="palette-desc">{m.description}</span>
+      </span>
+    </button>
+  );
+
   return (
     <div className="ws">
       <header className="ws-header">
         <div className="ws-title">
           <h1>Sandbox</h1>
-          <div className="chips">
-            <span className="chip">
-              {net.topology.devices.length}/{LIMITS.devices} devices
-            </span>
-            <span className="chip">
-              {net.topology.links.length}/{LIMITS.links} cables
-            </span>
-          </div>
+          <span className="meta mono">
+            {net.topology.devices.length}/{LIMITS.devices} devices · {net.topology.links.length}/{LIMITS.links} cables
+          </span>
         </div>
-        <span className={`save-state small ${status}`} role="status">
-          {status === 'saving' ? <CloudUpload size={15} /> : <CloudCheck size={15} />}
-          {status === 'saving' ? 'Saving…' : status === 'error' ? 'Not saved, retrying' : status === 'saved' ? 'Saved' : ''}
+        <span className={`save-state ${status}`} role="status">
+          <span className="led" aria-hidden="true" />
+          {status === 'saving' ? 'Saving' : status === 'error' ? 'Not saved, retrying' : status === 'saved' ? 'Saved' : ''}
         </span>
-        <button className="btn ghost" onClick={clear}>
-          <Trash2 size={16} /> <span className="hide-sm">Clear all</span>
+        <button className="btn ghost small" onClick={clear}>
+          <Trash2 size={15} /> <span className="hide-sm">Clear all</span>
         </button>
       </header>
 
       <div className="ws-body">
         <aside className="ws-panel">
           <div className="panel-body">
-            <h2 className="panel-title">Devices</h2>
-            <p className="muted small">Drag onto the canvas, or click to add.</p>
-            <div className="palette">
-              {PALETTE.map(({ kind, blurb }) => (
-                <button
-                  key={kind}
-                  className="palette-item"
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(DND_TYPE, kind);
-                    e.dataTransfer.effectAllowed = 'copy';
-                  }}
-                  onClick={() => add(kind)}
-                >
-                  <DeviceGlyph kind={kind} size={44} />
-                  <span>
-                    <strong>
-                      {KIND_LABEL[kind]} <span className="muted small">{MODEL_LABEL[kind]}</span>
-                    </strong>
-                    <span className="muted small">{blurb}</span>
-                  </span>
-                  <Plus size={16} className="palette-add" />
-                </button>
-              ))}
-            </div>
+            {error && <p className="error">{error}</p>}
+            {GROUPS.map((g) => (
+              <section key={g.title} className="palette-group">
+                <h2 className="label-caps">{g.title}</h2>
+                <div className="palette">{MODELS.filter((m) => g.kinds.includes(m.kind)).map(item)}</div>
+              </section>
+            ))}
 
-            <div className="tip-box">
-              <strong>How to build</strong>
+            <div className="note">
+              <h2 className="label-caps">How to build</h2>
               <ol>
-                <li>Add devices from the list above.</li>
+                <li>Click a device, or drag it onto the canvas.</li>
                 <li>
-                  Click <b>Connect</b> on the canvas, then click two devices and pick a port on each.
+                  Press <b>Connect</b>, click two devices, and pick a port on each.
                 </li>
-                <li>Double-click a switch or router for its console, or a PC for its desktop.</li>
+                <li>Double-click a router or switch for its console, or a PC for its desktop.</li>
                 <li>Select a device or cable and press Delete to remove it.</li>
               </ol>
-              <p className="muted small">Everything saves to your account automatically.</p>
+              <p className="muted small">Saved to your account automatically.</p>
             </div>
           </div>
         </aside>
@@ -169,13 +175,14 @@ export function SandboxPage() {
             changed();
             return out;
           }}
+          onMutate={changed}
           positions={positions}
           onMove={(id, x, y) => {
             net.moveDevice(id, x, y);
             changed();
           }}
           sandbox={{
-            onDrop: (kind, x, y) => add(kind, x, y),
+            onDrop: (kind, x, y, model) => add(kind, model, x, y),
             onConnect: (a, b) => {
               const err = net.connect(a, b);
               if (!err) changed();
