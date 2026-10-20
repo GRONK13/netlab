@@ -9,12 +9,16 @@ import { LabPage } from './pages/LabPage.tsx';
 import { LeaderboardPage } from './pages/LeaderboardPage.tsx';
 import { SandboxPage } from './pages/SandboxPage.tsx';
 import { TrainerPage } from './pages/TrainerPage.tsx';
+import { LessonPage } from './pages/LessonPage.tsx';
+import { ModulePage } from './pages/ModulePage.tsx';
+import { QuizPage } from './pages/QuizPage.tsx';
 
 type Route =
   | { page: 'home' }
   | { page: 'lab'; id: string }
   | { page: 'sandbox' }
   | { page: 'trainer' }
+  | { page: 'module' | 'lesson' | 'quiz'; id: string }
   | { page: 'leaderboard' };
 
 function parseHash(hash: string): Route {
@@ -22,6 +26,8 @@ function parseHash(hash: string): Route {
   if (lab) return { page: 'lab', id: lab[1]! };
   if (hash === '#/sandbox') return { page: 'sandbox' };
   if (hash === '#/trainer') return { page: 'trainer' };
+  const learn = /^#\/learn\/([\w-]+)(?:\/(lesson|quiz))?$/.exec(hash);
+  if (learn) return { page: learn[2] === 'lesson' ? 'lesson' : learn[2] === 'quiz' ? 'quiz' : 'module', id: learn[1]! };
   if (hash === '#/leaderboard') return { page: 'leaderboard' };
   return { page: 'home' };
 }
@@ -90,7 +96,8 @@ export function App() {
         </a>
         <nav aria-label="Main">
           {NAV.map(({ href, page, label, Icon }) => {
-            const current = route.page === page || (page === 'home' && route.page === 'lab');
+            const current =
+              route.page === page || (page === 'home' && ['lab', 'module', 'lesson', 'quiz'].includes(route.page));
             return (
               <a key={href} href={href} className="nav-item" aria-current={current ? 'page' : undefined} title={label}>
                 <Icon size={19} />
@@ -121,6 +128,9 @@ export function App() {
         {route.page === 'lab' && <LabPage key={route.id} labId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'sandbox' && <SandboxPage />}
         {route.page === 'trainer' && <TrainerPage onProgress={refresh} />}
+        {route.page === 'module' && <ModulePage key={route.id} moduleId={route.id} me={me} />}
+        {route.page === 'lesson' && <LessonPage key={route.id} moduleId={route.id} me={me} onProgress={refresh} />}
+        {route.page === 'quiz' && <QuizPage key={route.id} moduleId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'leaderboard' && <LeaderboardPage me={me} />}
       </main>
     </div>

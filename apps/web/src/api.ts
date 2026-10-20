@@ -1,5 +1,5 @@
 import type { LevelInfo } from '@netlab/labs';
-import type { Problem, TrainerSpec } from '@netlab/modules';
+import type { Problem, Question, TrainerSpec } from '@netlab/modules';
 import type { LogEntry, NetworkSnapshot } from '@netlab/sim';
 
 export interface User {
@@ -14,6 +14,23 @@ export interface Me {
   level: LevelInfo;
   completions: { labId: string; xpAwarded: number; completedAt: string }[];
   moduleSteps: { moduleId: string; step: 'lesson' | 'trainer' | 'quiz'; xpAwarded: number; completedAt: string }[];
+}
+
+export interface QuizStart {
+  attemptId: number;
+  questions: Question[];
+  pass: number;
+}
+
+export interface QuizResult {
+  correct: number;
+  total: number;
+  passed: boolean;
+  results: boolean[];
+  xpAwarded: number;
+  /** Only after a pass. */
+  review: { id: string; answer: string; explanation: string }[] | null;
+  level: LevelInfo;
 }
 
 export interface TrainerBest {
@@ -101,4 +118,8 @@ export const api = {
   startRound: (kind: string) => call<{ roundId: number; problems: Problem[] }>('POST', `/api/trainer/${kind}/start`),
   finishRound: (roundId: number, answers: string[]) =>
     call<TrainerResult>('POST', `/api/trainer/rounds/${roundId}/finish`, { answers }),
+  lessonDone: (moduleId: string) => call<void>('POST', `/api/modules/${moduleId}/lesson`),
+  startQuiz: (moduleId: string) => call<QuizStart>('POST', `/api/modules/${moduleId}/quiz`),
+  submitQuiz: (attemptId: number, answers: string[]) =>
+    call<QuizResult>('POST', `/api/quiz/${attemptId}/submit`, { answers }),
 };

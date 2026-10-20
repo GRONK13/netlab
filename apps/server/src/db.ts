@@ -106,6 +106,19 @@ const MIGRATIONS: string[] = [
     union all
     select user_id, 'module:' || step, module_id, xp_awarded, completed_at from module_steps;
   `,
+  `
+  create table quiz_attempts (
+    id serial primary key,
+    user_id integer not null references users(id) on delete cascade,
+    module_id text not null,
+    question_ids jsonb not null,
+    correct integer,
+    passed boolean,
+    started_at timestamptz not null default now(),
+    submitted_at timestamptz
+  );
+  create index quiz_attempts_user_idx on quiz_attempts(user_id, module_id);
+  `,
 ];
 
 export async function migrate(db: Db): Promise<number> {

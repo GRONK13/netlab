@@ -5,9 +5,11 @@
   "type": "module",
   "description": "Learning modules: lessons, quizzes and the subnetting trainer",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./answers": "./src/answers/index.ts"
   },
   "dependencies": {
+    "@netlab/labs": "*",
     "@netlab/sim": "*"
   }
 }

@@ -897,6 +897,404 @@ button {
   gap: 0.35rem;
 }
 
+/* ---- modules, lessons and quizzes ---- */
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-2);
+}
+
+.back-link:hover {
+  color: var(--accent);
+}
+
+.stat-action {
+  align-content: center;
+}
+
+.lab-line.step-line {
+  grid-template-columns: 2.25rem 1fr 4.5rem 3.5rem;
+}
+
+.module-leds {
+  display: flex;
+}
+
+.lesson {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.lesson-toc {
+  position: sticky;
+  top: 1.5rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.lesson-toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+  border-left: 1px solid var(--border);
+}
+
+.lesson-toc button {
+  display: block;
+  width: 100%;
+  padding: 0.3rem 0.75rem;
+  border: 0;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lesson-toc button:hover {
+  color: var(--text);
+  border-left-color: var(--accent);
+}
+
+.lesson-body {
+  display: grid;
+  gap: 2.5rem;
+  max-width: 46rem;
+}
+
+.lesson-section {
+  display: grid;
+  gap: 0.75rem;
+  scroll-margin-top: 1rem;
+}
+
+.lesson-section h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.lesson-end {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: start;
+  padding: 1.25rem;
+}
+
+.lesson-end p {
+  margin: 0;
+}
+
+.markdown {
+  display: grid;
+  gap: 0.85rem;
+  line-height: 1.6;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol {
+  margin: 0;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.3rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.markdown h3 {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+}
+
+.code-block {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  background: var(--console);
+  color: var(--console-text);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.code-block code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.tip {
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.lesson-table {
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.lesson-table th,
+.lesson-table td {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.lesson-table thead th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.explorer {
+  margin: 0;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.explorer-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+}
+
+.explorer-inputs label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.explorer-inputs .grow {
+  flex: 1 1 12rem;
+}
+
+.explorer-inputs input[type='range'] {
+  height: auto;
+  padding: 0;
+  border: 0;
+  accent-color: var(--accent);
+}
+
+.explorer-inputs input:not([type='range']) {
+  font-family: var(--mono);
+  width: 11.5rem;
+}
+
+.explorer-inputs input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.bits-row {
+  display: grid;
+  gap: 0.3rem;
+}
+
+/* Four octets share the row, so 32 bits fit at any width. */
+.bits {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  max-width: 34rem;
+  font-family: var(--mono);
+}
+
+.octet {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  row-gap: 0.1rem;
+}
+
+.octet i,
+.bits-legend i {
+  font-style: normal;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.octet small {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 0.75rem;
+}
+
+.octet .net,
+.bits-legend .net {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.octet .host,
+.bits-legend .host {
+  color: var(--text-3);
+}
+
+.bits-legend {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bits-legend i {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 1px solid var(--border-strong);
+}
+
+.bits-legend i + * {
+  margin-right: 0.75rem;
+}
+
+.explorer-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.6rem 1rem;
+}
+
+.explorer-facts dt {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.explorer-facts dd {
+  margin: 0.1rem 0 0;
+}
+
+.quiz-intro {
+  display: grid;
+  gap: 1rem;
+}
+
+.quiz {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.quiz > li {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.quiz > li.right {
+  border-left: 3px solid var(--success);
+}
+
+.quiz > li.wrong {
+  border-left: 3px solid var(--danger);
+}
+
+.quiz-prompt {
+  margin: 0;
+  font-weight: 500;
+}
+
+.choices {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.choice:hover {
+  border-color: var(--border-strong);
+}
+
+.choice:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.choice input {
+  height: auto;
+  accent-color: var(--accent);
+}
+
+.quiz-input {
+  max-width: 16rem;
+  font-family: var(--mono);
+}
+
+.quiz-feedback {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.quiz-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .lesson {
+    grid-template-columns: 1fr;
+  }
+
+  .lesson-toc {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .lab-line.step-line {
+    grid-template-columns: 2rem 1fr 2.5rem;
+  }
+
+  .module-leds {
+    display: none;
+  }
+
+  .bits {
+    gap: 0.3rem;
+  }
+
+  .octet i {
+    font-size: 0.78rem;
+  }
+}
+
 .device-glyph {
   display: block;
   flex: none;

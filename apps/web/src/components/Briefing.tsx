@@ -1,14 +1,23 @@
 import type { ReactNode } from 'react';
 
-/** Renders `code` and **bold** inside a line of text. */
+/** Renders `code`, **bold**, *italic* and powers like 2^h inside a line of text. */
 export function Inline({ text }: { text: string }) {
   const parts: ReactNode[] = [];
-  const re = /`([^`]+)`|\*\*([^*]+)\*\*/g;
+  const re = /`([^`]+)`|\*\*([^*]+)\*\*|\*([^*\s][^*]*)\*|(\d)\^(\w+)/g;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    parts.push(m[1] !== undefined ? <code key={m.index}>{m[1]}</code> : <strong key={m.index}>{m[2]}</strong>);
+    if (m[1] !== undefined) parts.push(<code key={m.index}>{m[1]}</code>);
+    else if (m[2] !== undefined) parts.push(<strong key={m.index}>{m[2]}</strong>);
+    else if (m[3] !== undefined) parts.push(<em key={m.index}>{m[3]}</em>);
+    else
+      parts.push(
+        <span key={m.index}>
+          {m[4]}
+          <sup>{m[5]}</sup>
+        </span>,
+      );
     last = re.lastIndex;
   }
   if (last < text.length) parts.push(text.slice(last));

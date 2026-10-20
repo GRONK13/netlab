@@ -2,7 +2,8 @@
 // these fail, CI doesn't promote the commit, so it never reaches netlab.dcism.org.
 
 import { getLab } from '@netlab/labs';
-import { solve, type Problem } from '@netlab/modules';
+import { solve, type Problem, type Question } from '@netlab/modules';
+import { ANSWERS, answerText } from '@netlab/modules/answers';
 import { expect, test, type Page } from '@playwright/test';
 import { SOLUTIONS } from '../packages/labs/test/solutions.ts';
 
@@ -100,4 +101,33 @@ test('the subnetting trainer grades a round and awards XP once', async ({ page }
   await expect(
     page.getByRole('navigation', { name: 'Main' }).locator('..').getByText('50 XP'),
   ).toBeVisible();
+});
+
+test('a student reads the Module 1 lesson and passes the checkpoint quiz', async ({ page }) => {
+  await register(page, `Learner${stamp}`);
+  await page.getByRole('link', { name: /Start module/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Lesson: IP Addressing and Subnetting' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Address in binary').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Finish lesson' }).click();
+  await expect(page.getByText("You've finished this lesson.")).toBeVisible();
+
+  await page.goto('/#/learn/ip-addressing/quiz');
+  const started = page.waitForResponse((r) => r.url().endsWith('/api/modules/ip-addressing/quiz'));
+  await page.getByRole('button', { name: 'Start the quiz' }).click();
+  const { questions } = (await (await started).json()) as { questions: Question[] };
+  const keys = ANSWERS['ip-addressing']!;
+  const items = page.locator('.quiz > li');
+  for (const [i, q] of questions.entries()) {
+    const answer = answerText(q, keys[q.id]!);
+    if (q.kind === 'choice')
+      await items.nth(i).getByRole('radio', { name: answer, exact: true }).check();
+    else await items.nth(i).getByRole('textbox').fill(answer);
+  }
+  await page.getByRole('button', { name: 'Submit answers' }).click();
+  await expect(page.getByText('10/10 correct. Passed: +75 XP!')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Back to the module' }).click();
+  await expect(page.getByText('2/3 steps')).toBeVisible();
 });

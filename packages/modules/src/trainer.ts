@@ -1,15 +1,8 @@
 // The subnetting speed trainer: timed rounds of generated problems.
 // A round is fully determined by its seed, so the server can re-grade it.
 
-import {
-  intToIp,
-  ipToInt,
-  isIp,
-  maskToPrefix,
-  prefixForHosts,
-  prefixToMask,
-  subnetOf,
-} from '@netlab/sim';
+import { maskToPrefix, prefixForHosts, prefixToMask, subnetOf } from '@netlab/sim';
+import { sameIp, sameNumber } from './normalize.ts';
 import { mulberry32, pick, randInt, shuffle, type Rng } from './random.ts';
 
 export interface TrainerSpec {
@@ -142,9 +135,5 @@ export function solve(p: Problem): string {
 
 /** Accepts "/26" or "26", spaces and thousands separators, and addresses with leading zeros. */
 export function isCorrect(p: Problem, input: string): boolean {
-  const s = input.trim();
-  const expected = solve(p);
-  if (p.answer === 'ip') return isIp(s) && intToIp(ipToInt(s)) === expected;
-  const n = s.replace(/^\//, '').replace(/[\s,]/g, '');
-  return /^\d+$/.test(n) && Number(n) === Number(expected);
+  return p.answer === 'ip' ? sameIp(input, solve(p)) : sameNumber(input, solve(p));
 }

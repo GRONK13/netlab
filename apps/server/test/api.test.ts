@@ -1,4 +1,5 @@
-import { solve, type Problem } from '@netlab/modules';
+import { solve, type Problem, type Question } from '@netlab/modules';
+import { ANSWERS, answerText } from '@netlab/modules/answers';
 import { Network } from '@netlab/sim';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -254,5 +255,77 @@ describe('subnetting trainer', () => {
     expect(res.json().entries.map((e: { displayName: string }) => e.displayName)).not.toContain(
       'Frank',
     );
+  });
+});
+
+describe('learning modules', () => {
+  let cookie: string;
+  beforeAll(async () => {
+    cookie = (await register('gina@school.edu', 'Gina')).cookie;
+  });
+
+  const keys = ANSWERS['ip-addressing']!;
+  const right = (q: Question) => (q.kind === 'choice' ? String(keys[q.id]!.answer) : answerText(q, keys[q.id]!));
+  const startQuiz = async (who = cookie) => {
+    const res = await post('/api/modules/ip-addressing/quiz', who);
+    expect(res.statusCode).toBe(200);
+    return res.json() as { attemptId: number; questions: Question[]; pass: number };
+  };
+  const submit = (attemptId: number, answers: string[], who = cookie) =>
+    post(`/api/quiz/${attemptId}/submit`, who, { answers });
+
+  it('records a lesson as read, once, for 0 XP', async () => {
+    expect((await post('/api/modules/ip-addressing/lesson', cookie)).statusCode).toBe(204);
+    expect((await post('/api/modules/ip-addressing/lesson', cookie)).statusCode).toBe(204);
+    const me = (await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json();
+    expect(me.moduleSteps).toMatchObject([{ moduleId: 'ip-addressing', step: 'lesson', xpAwarded: 0 }]);
+    expect(me.level.xp).toBe(0);
+    expect((await post('/api/modules/nope/lesson', cookie)).statusCode).toBe(404);
+    expect((await post('/api/modules/__proto__/quiz', cookie)).statusCode).toBe(404);
+  });
+
+  it('draws 10 different questions without answers', async () => {
+    const quiz = await startQuiz();
+    expect(quiz.questions).toHaveLength(10);
+    expect(new Set(quiz.questions.map((q) => q.id)).size).toBe(10);
+    for (const q of quiz.questions) expect(q).not.toHaveProperty('answer');
+    expect(JSON.stringify(quiz)).not.toContain('explanation');
+  });
+
+  it("flags wrong answers on a fail without revealing the right ones", async () => {
+    const quiz = await startQuiz();
+    const answers = quiz.questions.map((q, i) => (i < 5 ? right(q) : 'wrong'));
+    const res = await submit(quiz.attemptId, answers);
+    expect(res.json()).toMatchObject({ correct: 5, total: 10, passed: false, xpAwarded: 0, review: null });
+    expect(res.json().results).toEqual([true, true, true, true, true, false, false, false, false, false]);
+    const body = JSON.stringify(res.json());
+    expect(body).not.toContain('explanation');
+    expect(body).not.toContain('"answer"');
+  });
+
+  it('awards quiz XP on the first pass only, with explanations', async () => {
+    const quiz = await startQuiz();
+    const answers = quiz.questions.map((q, i) => (i < 8 ? right(q) : ''));
+    const res = await submit(quiz.attemptId, answers);
+    expect(res.json()).toMatchObject({ correct: 8, passed: true, xpAwarded: 75 });
+    expect(res.json().review).toHaveLength(10);
+    expect(res.json().review[0].explanation.length).toBeGreaterThan(10);
+    expect(res.json().level.xp).toBe(75);
+
+    expect((await submit(quiz.attemptId, answers)).statusCode).toBe(409);
+    const again = await startQuiz();
+    const second = await submit(again.attemptId, again.questions.map(right));
+    expect(second.json()).toMatchObject({ correct: 10, passed: true, xpAwarded: 0 });
+  });
+
+  it("refuses someone else's, expired and malformed attempts", async () => {
+    const quiz = await startQuiz();
+    const hal = (await register('hal@school.edu', 'Hal')).cookie;
+    expect((await submit(quiz.attemptId, [], hal)).statusCode).toBe(404);
+    expect((await submit(quiz.attemptId, ['x'.repeat(101)])).statusCode).toBe(400);
+    expect((await submit(quiz.attemptId, Array.from({ length: 21 }, () => '1'))).statusCode).toBe(400);
+    await db.query(`update quiz_attempts set started_at = now() - interval '3 hours' where id = $1`, [quiz.attemptId]);
+    expect((await submit(quiz.attemptId, [])).statusCode).toBe(410);
+    expect((await submit(999999, [])).statusCode).toBe(404);
   });
 });

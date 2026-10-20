@@ -1,14 +1,21 @@
 import { LABS } from '@netlab/labs';
+import { MODULES } from '@netlab/modules';
 import { ArrowRight, Check, Timer } from 'lucide-react';
 import type { Me } from '../api.ts';
 import { DeviceGlyph } from '../components/DeviceIcon.tsx';
 import { LedMeter } from '../components/LevelCard.tsx';
+import { stepsFor } from '../moduleSteps.ts';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
 export function Dashboard({ me }: { me: Me }) {
   const done = new Map(me.completions.map((c) => [c.labId, c]));
   const next = LABS.find((l) => !done.has(l.id));
+  const modules = MODULES.map((m) => ({ m, steps: stepsFor(m, me) }));
+  // Modules come first: the first unfinished one decides what's up next.
+  const nextModule = modules.find(({ steps }) => steps.some((s) => !s.done));
+  const nextStep = nextModule?.steps.find((s) => !s.done);
+  const fresh = done.size === 0 && me.moduleSteps.length === 0;
   const first = me.user.displayName.split(/\s+/)[0];
   const lv = me.level;
 
@@ -42,7 +49,21 @@ export function Dashboard({ me }: { me: Me }) {
         </div>
       </section>
 
-      {next && (
+      {nextModule && nextStep ? (
+        <a href={nextStep.href} className="next-up">
+          <div>
+            <span className="label-caps accent">{fresh ? 'Start here' : 'Up next'}</span>
+            <h2>
+              Module {nextModule.m.number}: {nextModule.m.title}
+            </h2>
+            <p className="muted">Next step: {nextStep.title}</p>
+          </div>
+          <span className="btn accent">
+            {fresh ? 'Start module' : 'Continue'} <ArrowRight size={16} />
+          </span>
+        </a>
+      ) : (
+        next && (
         <a href={`#/lab/${next.id}`} className="next-up">
           <div>
             <span className="label-caps accent">{done.size === 0 ? 'Start here' : 'Up next'}</span>
@@ -53,7 +74,47 @@ export function Dashboard({ me }: { me: Me }) {
             {done.size === 0 ? 'Start lab' : 'Continue'} <ArrowRight size={16} />
           </span>
         </a>
+        )
       )}
+
+      <section>
+        <div className="section-head">
+          <h2>Modules</h2>
+          <span className="mono muted small">Learn it, drill it, prove it</span>
+        </div>
+        <ol className="lab-table">
+          {modules.map(({ m, steps }) => {
+            const d = steps.filter((s) => s.done).length;
+            return (
+              <li key={m.id}>
+                <a href={`#/learn/${m.id}`} className={`lab-line${d === steps.length ? ' done' : ''}`}>
+                  <span className="lab-idx mono">M{pad(m.number)}</span>
+                  <span className="lab-name">
+                    <strong>{m.title}</strong>
+                    <span className="muted">{m.summary}</span>
+                  </span>
+                  <span className="lab-domain">{m.ccnaDomain}</span>
+                  <span className="module-leds">
+                    <LedMeter lit={d} total={steps.length} label={`${m.title}: steps done`} />
+                  </span>
+                  <span className="lab-xp mono">
+                    {d}/{steps.length}
+                  </span>
+                  <span className="lab-state">
+                    {d === steps.length ? (
+                      <span className="done-mark">
+                        <Check size={14} strokeWidth={3} /> Done
+                      </span>
+                    ) : (
+                      <ArrowRight size={16} />
+                    )}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
 
       <section>
         <div className="section-head">
