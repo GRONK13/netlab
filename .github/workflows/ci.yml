@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # Marks a green commit on main as deployable. The school server polls the
+  # `deploy` branch (scripts/deploy.sh via cron) and ships whatever lands there.
+  release:
+    name: Promote to deploy branch
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: git push --force origin "${{ github.sha }}:refs/heads/deploy"
+      - run: echo "Promoted ${{ github.sha }}. netlab.dcism.org picks it up within ~2 minutes." >> "$GITHUB_STEP_SUMMARY"

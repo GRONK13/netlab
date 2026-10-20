@@ -38,9 +38,24 @@ Open http://localhost:5173 and create an account. Locally, any email can registe
 
 Available checks are in `packages/sim/src/checks.ts`. New IOS commands go in `packages/sim/src/ios.ts`.
 
+## CI/CD
+
+```
+push to main ──► GitHub Actions: typecheck, test, build ──► green? push commit to `deploy` branch
+                                                                   │
+netlab.dcism.org: cron runs scripts/deploy.sh every 2 min ◄────────┘
+  fetch `deploy` → npm ci (if lockfile changed) → build → pm2 restart → health check → roll back on failure
+```
+
+- **Ship a change:** push to `main` (or merge a pull request). It's live about 2 minutes after CI passes.
+- **Pull requests** run the same checks but never deploy.
+- **A failed deploy** rolls back to the last good commit and isn't retried. Push a fix, or run `scripts/deploy.sh --force` on the server.
+- **Deploy log:** `tail -f ~/netlab.dcism.org/.data/deploy.log`
+- The server pulls with a read-only deploy key (`~/.ssh/netlab_deploy`, host alias `github-netlab`), so GitHub never holds credentials for the server.
+
 ## Deploy to netlab.dcism.org
 
-On the school server (no root needed):
+First-time setup on the school server (no root needed). After this, CI/CD handles updates.
 
 ```bash
 git clone <repo-url> ~/netlab.dcism.org
@@ -60,10 +75,10 @@ curl -s http://127.0.0.1:$PORT/api/health
 curl -sI https://netlab.dcism.org
 ```
 
-Update later with `git pull && npm ci && npm run build && pm2 restart netlab`. Migrations also run automatically when the server starts.
+Migrations run automatically when the server starts.
 
-Make pm2 restart after a server reboot (once per account):
+Then add the cron jobs (auto-deploy, and pm2 restart after a server reboot):
 
 ```bash
-(crontab -l 2>/dev/null; echo "@reboot $(command -v pm2) resurrect") | crontab -
+(crontab -l 2>/dev/null; echo "*/2 * * * * $HOME/netlab.dcism.org/scripts/deploy.sh"; echo "@reboot $(command -v pm2) resurrect") | crontab -
 ```
