@@ -55,7 +55,14 @@ describe('router on a stick', () => {
     expect(n.ping('PC1', '192.168.20.10').success).toBe(false);
     configure(n);
     const r = n.ping('PC1', '192.168.20.10');
-    expect(r).toEqual({ success: true, path: ['PC1', 'R1', 'PC2'] });
+    expect(r).toEqual({
+      success: true,
+      path: ['PC1', 'R1', 'PC2'],
+      hops: [
+        { ip: '192.168.10.1', device: 'R1' },
+        { ip: '192.168.20.10', device: 'PC2' },
+      ],
+    });
     expect(n.exec('R1', 'ping 192.168.10.10')).toContain('!!!!!');
   });
 

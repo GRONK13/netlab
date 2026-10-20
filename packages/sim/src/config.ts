@@ -1,3 +1,4 @@
+import { isEndpoint } from './catalog.ts';
 import { physicalPorts } from './interfaces.ts';
 import type { DeviceConfig, DeviceSpec, InterfaceConfig, VlanSet } from './types.ts';
 
@@ -18,7 +19,7 @@ export function defaultHostname(spec: DeviceSpec): string {
 
 export function defaultConfig(spec: DeviceSpec): DeviceConfig {
   const interfaces: Record<string, InterfaceConfig> = {};
-  for (const name of physicalPorts(spec.kind)) {
+  for (const name of physicalPorts(spec.kind, spec.model)) {
     if (spec.kind === 'switch') {
       interfaces[name] = { name, shutdown: false, mode: 'access', accessVlan: 1, trunkAllowed: 'all' };
     } else if (spec.kind === 'router') {
@@ -35,7 +36,7 @@ export function defaultConfig(spec: DeviceSpec): DeviceConfig {
     vty: Array.from({ length: 16 }, () => ({ login: false })),
     vlans: spec.kind === 'switch' ? clone(DEFAULT_VLANS) : {},
     interfaces,
-    pc: spec.kind === 'pc' ? { ...spec.pc } : undefined,
+    pc: isEndpoint(spec.kind) ? { ...spec.pc } : undefined,
   };
 }
 

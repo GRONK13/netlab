@@ -1,3 +1,4 @@
+import { portsOf } from './catalog.ts';
 import type { DeviceKind } from './types.ts';
 
 const TYPES = [
@@ -13,16 +14,9 @@ export interface ParsedInterface {
   sub?: number;
 }
 
-/** Physical ports for each device kind, in display order. */
-export function physicalPorts(kind: DeviceKind): string[] {
-  if (kind === 'switch') {
-    const ports: string[] = [];
-    for (let i = 1; i <= 24; i++) ports.push(`FastEthernet0/${i}`);
-    ports.push('GigabitEthernet0/1', 'GigabitEthernet0/2');
-    return ports;
-  }
-  if (kind === 'router') return ['GigabitEthernet0/0', 'GigabitEthernet0/1', 'GigabitEthernet0/2'];
-  return ['FastEthernet0'];
+/** Physical ports of a device model, in display order. */
+export function physicalPorts(kind: DeviceKind, model?: string): string[] {
+  return portsOf({ kind, model });
 }
 
 /**

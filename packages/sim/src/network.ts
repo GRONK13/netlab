@@ -1,5 +1,6 @@
 import { clone, defaultConfig } from './config.ts';
-import { parentInterface, physicalPorts } from './interfaces.ts';
+import { hasIos, ID_BASE, KINDS, modelInfo, portsOf } from './catalog.ts';
+import { parentInterface } from './interfaces.ts';
 import { iosTrees, type IosTrees } from './ios.ts';
 import { complete, help, match, type CommandTree, type MatchResult } from './parser.ts';
 import { pcTree, PC_PROMPT } from './pc.ts';
@@ -64,6 +65,8 @@ export class Device {
   running: DeviceConfig;
   startup: DeviceConfig | null = null;
   session: Session;
+  /** ARP cache of an end device: IP -> MAC. Runtime state, not saved. */
+  readonly arp = new Map<string, string>();
 
   constructor(spec: DeviceSpec) {
     this.id = spec.id;
@@ -78,7 +81,11 @@ export class Device {
   }
 
   get model(): string {
-    return this.spec.model ?? (this.kind === 'switch' ? '2960-24TT' : this.kind === 'router' ? '2911' : 'PC');
+    return modelInfo(this.spec).model;
+  }
+
+  get ports(): string[] {
+    return portsOf(this.spec);
   }
 
   iface(name: string): InterfaceConfig | undefined {
@@ -153,15 +160,16 @@ export class Network {
 
   /** Next free Packet Tracer-style id for a kind: Switch0, Router1, PC2... */
   nextId(kind: DeviceKind): string {
-    const base = kind === 'switch' ? 'Switch' : kind === 'router' ? 'Router' : 'PC';
+    const base = ID_BASE[kind];
     let n = 0;
     while (this.devices.has(`${base}${n}`)) n++;
     return `${base}${n}`;
   }
 
-  addDevice(kind: DeviceKind, x: number, y: number): Device {
+  addDevice(kind: DeviceKind, x: number, y: number, model?: string): Device {
     if (this.devices.size >= LIMITS.devices) throw new Error(`A topology can have at most ${LIMITS.devices} devices.`);
-    const spec: DeviceSpec = { id: this.nextId(kind), kind, x, y };
+    if (!KINDS.includes(kind)) throw new Error('Unknown device type.');
+    const spec: DeviceSpec = { id: this.nextId(kind), kind, x, y, model: modelInfo({ kind, model }).model };
     this.topology.devices.push(spec);
     const dev = new Device(spec);
     this.devices.set(spec.id, dev);
@@ -186,7 +194,7 @@ export class Network {
   freePorts(deviceId: string): string[] {
     const dev = this.devices.get(deviceId);
     if (!dev) return [];
-    return physicalPorts(dev.kind).filter((p) => !this.peer(deviceId, p));
+    return dev.ports.filter((p) => !this.peer(deviceId, p));
   }
 
   /** Plugs in a cable. Returns an error message, or null on success. */
@@ -194,7 +202,7 @@ export class Network {
     if (a.device === b.device) return 'A cable needs two different devices.';
     for (const end of [a, b]) {
       const dev = this.devices.get(end.device);
-      if (!dev || !physicalPorts(dev.kind).includes(end.port)) return `${end.device} has no port ${end.port}.`;
+      if (!dev || !dev.ports.includes(end.port)) return `${end.device} has no port ${end.port}.`;
       if (this.peer(end.device, end.port)) return `${end.device} ${end.port} already has a cable.`;
     }
     if (this.topology.links.length >= LIMITS.links) return `A topology can have at most ${LIMITS.links} cables.`;
@@ -223,7 +231,8 @@ export class Network {
     const ids = new Set<string>();
     for (const d of t.devices) {
       if (!/^[A-Za-z0-9_-]{1,20}$/.test(d.id) || ids.has(d.id)) throw new Error('Bad device id.');
-      if (!['switch', 'router', 'pc'].includes(d.kind)) throw new Error('Bad device kind.');
+      if (!KINDS.includes(d.kind)) throw new Error('Bad device kind.');
+      if (d.model !== undefined && modelInfo(d).model !== d.model) throw new Error('Bad device model.');
       if (typeof d.x !== 'number' || typeof d.y !== 'number') throw new Error('Bad device position.');
       ids.add(d.id);
     }
@@ -244,7 +253,7 @@ export class Network {
   /** Lines per page before `--More--`; 0 means never pause (`terminal length 0`). */
   pageLength(deviceId: string): number {
     const dev = this.devices.get(deviceId);
-    return !dev || dev.kind === 'pc' ? 0 : dev.session.termLength;
+    return !dev || !hasIos(dev.kind) ? 0 : dev.session.termLength;
   }
 
   // ---- Terminal API -------------------------------------------------------
@@ -258,7 +267,7 @@ export class Network {
       if (p.kind === 'reload') return 'Proceed with reload? [confirm]';
       return '';
     }
-    if (dev.kind === 'pc') return PC_PROMPT;
+    if (!hasIos(dev.kind)) return PC_PROMPT;
     const host = dev.running.hostname;
     switch (dev.session.mode) {
       case 'user':
@@ -279,7 +288,7 @@ export class Network {
   /** Runs one line typed at a device's terminal and returns the output text. */
   exec(deviceId: string, line: string): string {
     const dev = this.devices.get(deviceId);
-    if (!dev) return '';
+    if (!dev || dev.kind === 'hub') return '';
     line = line.slice(0, 300);
     if (dev.session.pending) return this.handlePending(dev, line);
     if (line.trim() === '') return '';
@@ -314,7 +323,8 @@ export class Network {
   complete(deviceId: string, line: string): string | null {
     const dev = this.device(deviceId);
     if (dev.session.pending) return null;
-    return complete(this.treeFor(dev), line) ?? complete(this.trees(dev).config, line);
+    const done = complete(this.treeFor(dev), line);
+    return done ?? (hasIos(dev.kind) ? complete(this.trees(dev).config, line) : null);
   }
 
   // ---- internals ----------------------------------------------------------
@@ -324,7 +334,7 @@ export class Network {
   }
 
   private treeFor(dev: Device): CommandTree<Ctx> {
-    if (dev.kind === 'pc') return pcTree;
+    if (!hasIos(dev.kind)) return pcTree;
     const t = this.trees(dev);
     switch (dev.session.mode) {
       case 'user':
@@ -346,7 +356,7 @@ export class Network {
 
   private errorText(dev: Device, r: MatchResult<Ctx>, line: string, offset = 0): string {
     if (r.ok || r.error === 'empty') return '';
-    if (dev.kind === 'pc') return 'Invalid Command.';
+    if (!hasIos(dev.kind)) return 'Invalid Command.';
     if (r.error === 'ambiguous') return `% Ambiguous command:  "${r.input}"`;
     if (r.error === 'incomplete') return '% Incomplete command.';
     const execMode = dev.session.mode === 'user' || dev.session.mode === 'priv';

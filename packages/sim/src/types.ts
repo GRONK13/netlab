@@ -1,4 +1,4 @@
-export type DeviceKind = 'switch' | 'router' | 'pc';
+export type DeviceKind = 'router' | 'switch' | 'hub' | 'pc' | 'laptop' | 'server' | 'printer';
 
 export type SwitchportMode = 'access' | 'trunk';
 
@@ -45,6 +45,8 @@ export interface DeviceConfig {
   vlans: Record<string, { name: string }>;
   interfaces: Record<string, InterfaceConfig>;
   pc?: PcConfig;
+  /** Servers: the page their web server returns. */
+  http?: { title: string; body: string };
 }
 
 export interface DeviceSpec {

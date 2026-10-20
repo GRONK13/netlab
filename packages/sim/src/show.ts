@@ -1,6 +1,6 @@
 import { formatVlanList, vlanAllowed } from './config.ts';
 import { type7, type5Display } from './crypto.ts';
-import { parentInterface, physicalPorts, shortName } from './interfaces.ts';
+import { parentInterface, shortName } from './interfaces.ts';
 import type { Device, Network } from './network.ts';
 import type { DeviceConfig, InterfaceConfig, LineConfig } from './types.ts';
 
@@ -11,7 +11,7 @@ function pw(cfg: DeviceConfig, plain: string): string {
 /** Physical interfaces in hardware order, each followed by its subinterfaces. */
 function orderedInterfaces(dev: Device, cfg: DeviceConfig): InterfaceConfig[] {
   const out: InterfaceConfig[] = [];
-  for (const name of physicalPorts(dev.kind)) {
+  for (const name of dev.ports) {
     const i = cfg.interfaces[name];
     if (i) out.push(i);
     const subs = Object.values(cfg.interfaces)
@@ -109,7 +109,7 @@ export function showVlanBrief(dev: Device): string {
   ];
   const ids = Object.keys(dev.running.vlans).map(Number).sort((a, b) => a - b);
   for (const id of ids) {
-    const ports = physicalPorts('switch')
+    const ports = dev.ports
       .map((n) => dev.iface(n)!)
       .filter((i) => i.mode !== 'trunk' && (i.accessVlan ?? 1) === id)
       .map((i) => shortName(i.name));
@@ -127,7 +127,7 @@ function statusName(n: string): string {
 
 export function showInterfacesStatus(net: Network, dev: Device): string {
   const out = ['Port      Name               Status       Vlan       Duplex  Speed Type'];
-  for (const n of physicalPorts('switch')) {
+  for (const n of dev.ports) {
     const i = dev.iface(n)!;
     const status = i.shutdown ? 'disabled' : net.linkUp(dev.id, n) ? 'connected' : 'notconnect';
     const vlan = i.mode === 'trunk' ? 'trunk' : String(i.accessVlan ?? 1);
@@ -140,7 +140,7 @@ export function showInterfacesStatus(net: Network, dev: Device): string {
 }
 
 export function showInterfacesTrunk(net: Network, dev: Device): string {
-  const trunks = physicalPorts('switch')
+  const trunks = dev.ports
     .map((n) => dev.iface(n)!)
     .filter((i) => i.mode === 'trunk' && net.linkUp(dev.id, i.name));
   if (trunks.length === 0) return '';
@@ -198,11 +198,11 @@ export function showMacAddressTable(net: Network, dev: Device): string {
     '',
   ];
   const rows: [number, string, string][] = [];
-  for (const n of physicalPorts('switch')) {
+  for (const n of dev.ports) {
     if (!net.linkUp(dev.id, n)) continue;
     const peer = net.peer(dev.id, n)!;
     const other = net.device(peer.device);
-    if (other.kind === 'switch') continue;
+    if (other.kind === 'switch' || other.kind === 'hub') continue;
     const i = dev.iface(n)!;
     if (i.mode === 'trunk') {
       for (const s of Object.values(other.running.interfaces)) {
@@ -229,8 +229,8 @@ export function showVersion(dev: Device): string {
       `${host} uptime is 0 minutes`,
       'System image file is "flash:c2960-lanbasek9-mz.150-2.SE4.bin"',
       '',
-      'cisco WS-C2960-24TT-L (PowerPC405) processor with 65536K bytes of memory.',
-      '24 FastEthernet interfaces',
+      `cisco WS-C${dev.model}-L (PowerPC405) processor with 65536K bytes of memory.`,
+      `${dev.ports.filter((p) => p.startsWith('Fast')).length} FastEthernet interfaces`,
       '2 Gigabit Ethernet interfaces',
       '',
       'Configuration register is 0xF',
@@ -243,8 +243,8 @@ export function showVersion(dev: Device): string {
     `${host} uptime is 0 minutes`,
     'System image file is "flash0:c2900-universalk9-mz.SPA.151-4.M4.bin"',
     '',
-    'Cisco CISCO2911/K9 (revision 1.0) with 491520K/32768K bytes of memory.',
-    '3 Gigabit Ethernet interfaces',
+    `Cisco ${dev.model} (revision 1.0) with 491520K/32768K bytes of memory.`,
+    `${dev.ports.length} Gigabit Ethernet interfaces`,
     '',
     'Configuration register is 0x2102',
   ].join('\n');
