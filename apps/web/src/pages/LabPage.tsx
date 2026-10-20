@@ -1,11 +1,13 @@
-import { getLab, levelFor, xpAward, type Lab } from '@netlab/labs';
+import { getLab, LABS, levelFor, xpAward, type Lab } from '@netlab/labs';
+import { MODULES } from '@netlab/modules';
 import { evaluateAll, Network, type LogEntry } from '@netlab/sim';
-import { ArrowLeft, Check, CircleCheck, Lightbulb, ListChecks, RotateCcw, Send, X } from 'lucide-react';
+import { ArrowLeft, Check, Lightbulb, RotateCcw, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, type Me, type SubmitResult } from '../api.ts';
 import { Briefing, Inline } from '../components/Briefing.tsx';
 import { LedMeter } from '../components/LevelCard.tsx';
 import { Stage } from '../components/Stage.tsx';
+import { SubmitDialog, type NextStep } from '../components/SubmitDialog.tsx';
 import type { Positions } from '../components/TopologyCanvas.tsx';
 
 const MAX_LOG = 5000;
@@ -33,6 +35,7 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
   const logRef = useRef<LogEntry[]>([]);
   const dirty = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const submitButton = useRef<HTMLButtonElement>(null);
 
   const [ready, setReady] = useState(false);
   const [epoch, setEpoch] = useState(0);
@@ -167,6 +170,15 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
   };
 
   const before = levelFor(Math.max(0, (result?.level.xp ?? 0) - (result?.xpAwarded ?? 0)));
+  const allMet = doneCount === lab.objectives.length;
+  // After a pass: back to the module this lab belongs to, else the next unfinished lab.
+  const mod = MODULES.find((m) => m.practice === lab.id || m.challenge === lab.id);
+  const nextLab = LABS.find((l) => l.id !== lab.id && !me.completions.some((c) => c.labId === l.id));
+  const next: NextStep = mod
+    ? { href: `#/learn/${mod.id}`, label: `Back to Module ${mod.number}` }
+    : nextLab
+      ? { href: `#/lab/${nextLab.id}`, label: `Next lab: ${nextLab.title}` }
+      : { href: '#/', label: 'Back to all labs' };
 
   return (
     <div className="ws">
@@ -197,7 +209,13 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
         <button className="btn ghost small" onClick={reset} disabled={!ready}>
           <RotateCcw size={15} /> <span className="hide-sm">Reset</span>
         </button>
-        <button className="btn accent" onClick={() => void submit()} disabled={busy || !ready}>
+        <button
+          ref={submitButton}
+          className={`btn accent${allMet && !alreadyDone ? ' ready' : ''}`}
+          onClick={() => void submit()}
+          disabled={busy || !ready}
+          title={allMet ? 'All objectives met: submit to be graded and earn XP' : 'Check your work on the server and see what is left'}
+        >
           <Send size={15} /> {busy ? 'Checking…' : 'Submit'}
         </button>
       </header>
@@ -218,32 +236,6 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
 
           <div className="panel-body">
             {error && <p className="error">{error}</p>}
-            {result && (
-              <div className={`result ${result.passed ? 'pass' : 'fail'}`} role="status">
-                {result.passed ? <CircleCheck size={20} /> : <ListChecks size={20} />}
-                <div>
-                  {result.passed && result.xpAwarded > 0 && (
-                    <>
-                      <strong>Lab complete! +{result.xpAwarded} XP</strong>
-                      {result.level.level > before.level && (
-                        <div>
-                          Level up: you're now level {result.level.level}, {result.level.rank}.
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {result.passed && result.xpAwarded === 0 && <strong>All objectives met. You already earned XP here.</strong>}
-                  {!result.passed && (
-                    <strong>
-                      {result.results.filter(Boolean).length} of {result.results.length} objectives met. Keep going!
-                    </strong>
-                  )}
-                </div>
-                <button className="icon-btn" onClick={() => setResult(null)} aria-label="Dismiss">
-                  <X size={16} />
-                </button>
-              </div>
-            )}
 
             {tab === 'task' && (
               <>
@@ -254,6 +246,10 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
                     <li>Double-click a switch or router to open its console below.</li>
                     <li>Double-click a PC to open its desktop.</li>
                     <li>Click any device to inspect its ports. Drag to rearrange.</li>
+                    <li>
+                      When every objective is met, press <b>Submit</b>. The server re-checks your work and awards the
+                      XP.
+                    </li>
                   </ul>
                 </div>
               </>
@@ -340,6 +336,21 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
           <div className="stage center muted">{error ? '' : 'Loading lab…'}</div>
         )}
       </div>
+
+      {result && (
+        <SubmitDialog
+          lab={lab}
+          result={result}
+          levelBefore={before}
+          next={next}
+          onClose={(keepWorking) => {
+            setResult(null);
+            if (keepWorking) setTab('objectives');
+            // Submit was disabled while checking, so the browser dropped focus; put it back.
+            submitButton.current?.focus();
+          }}
+        />
+      )}
     </div>
   );
 }

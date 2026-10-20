@@ -38,6 +38,17 @@ test('a student completes Switch Basics, earns XP and reaches the leaderboard', 
   await page.getByRole('link', { name: lab.title }).first().click();
   await expect(page.getByRole('heading', { name: lab.title })).toBeVisible();
 
+  // Submitting early says what's missing, and Keep working returns to the objectives.
+  await page.getByRole('button', { name: 'Submit' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Not finished yet' })).toBeVisible();
+  await expect(dialog.getByText('(not met)')).toHaveCount(lab.objectives.length);
+  await dialog.getByRole('button', { name: 'Keep working' }).click();
+  await expect(page.getByRole('tab', { name: /Objectives/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+
   await page.getByRole('tab', { name: 'SW1' }).click();
   await page.getByLabel('SW1 console').click();
   for (const { line } of SOLUTIONS[lab.id]!) {
@@ -48,7 +59,9 @@ test('a student completes Switch Basics, earns XP and reaches the leaderboard', 
   await expect(page.getByTitle(`${total} of ${total} objectives met`)).toBeVisible();
 
   await page.getByRole('button', { name: 'Submit' }).click();
-  await expect(page.getByText(`Lab complete! +${lab.xp} XP`)).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: `Lab complete! +${lab.xp} XP` })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: /Next lab/ })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Stay in the lab' }).click();
 
   await nav(page, 'Leaderboard').click();
   await expect(page.getByRole('cell', { name: student })).toBeVisible();
