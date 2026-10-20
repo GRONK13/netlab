@@ -1,0 +1,10 @@
+{
+  "name": "@netlab/sim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cisco IOS network simulator: CLI, devices, ping engine and grader checks",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

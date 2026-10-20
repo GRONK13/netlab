@@ -1,0 +1,13 @@
+{
+  "name": "@netlab/labs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Lab definitions and progression rules (XP, levels, ranks)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@netlab/sim": "*"
+  }
+}
