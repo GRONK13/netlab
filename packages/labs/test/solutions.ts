@@ -39,6 +39,32 @@ export const SOLUTIONS: Record<string, LogEntry[]> = {
     'switchport access vlan 20',
     'end',
   ]),
+  'ip-practice': [
+    { device: 'PC1', line: 'ipconfig 192.168.1.10 255.255.255.0' },
+    { device: 'PC2', line: 'ipconfig 192.168.1.20 255.255.255.0' },
+    { device: 'PC1', line: 'ping 192.168.1.20' },
+    { device: 'PC3', line: 'ipconfig 192.168.2.30 255.255.255.0' },
+    { device: 'PC1', line: 'ping 192.168.2.30' },
+    { device: 'PC4', line: 'ipconfig 192.168.1.200 255.255.255.128' },
+    { device: 'PC1', line: 'ping 192.168.1.200' },
+  ],
+  'address-the-office': [
+    ...on('R1', [
+      'enable',
+      'configure terminal',
+      'interface g0/0',
+      'ip address 192.168.50.1 255.255.255.128',
+      'no shutdown',
+      'interface g0/1',
+      'ip address 192.168.50.129 255.255.255.128',
+      'no shutdown',
+      'end',
+    ]),
+    { device: 'PC1', line: 'ipconfig 192.168.50.10 255.255.255.128 192.168.50.1' },
+    { device: 'PC2', line: 'ipconfig 192.168.50.11 255.255.255.128 192.168.50.1' },
+    { device: 'PC3', line: 'ipconfig 192.168.50.140 255.255.255.128 192.168.50.129' },
+    { device: 'PC4', line: 'ipconfig 192.168.50.141 255.255.255.128 192.168.50.129' },
+  ],
   'router-on-a-stick': [
     ...on('SW1', ['en', 'conf t', 'int g0/1', 'switchport mode trunk', 'switchport trunk allowed vlan 10,20', 'end']),
     ...on('R1', [

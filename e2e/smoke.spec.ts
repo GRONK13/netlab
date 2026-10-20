@@ -129,5 +129,35 @@ test('a student reads the Module 1 lesson and passes the checkpoint quiz', async
   await expect(page.getByText('10/10 correct. Passed: +75 XP!')).toBeVisible();
 
   await page.getByRole('link', { name: 'Back to the module' }).click();
-  await expect(page.getByText('2/3 steps')).toBeVisible();
+  await expect(page.getByText('2/5 steps')).toBeVisible();
+});
+
+test('guided practice reveals one step at a time and explains each', async ({ page }) => {
+  await register(page, `Guided${stamp}`);
+  await page.goto('/#/lab/ip-practice');
+  const steps = page.locator('.objectives.steps li');
+  await expect(steps).toHaveCount(1);
+
+  // Type a command into a PC's Command Prompt, the way a student would.
+  const onPc = async (pc: string, line: string) => {
+    await page.getByRole('button', { name: `${pc}, pc. Press Enter to open.` }).press('Enter');
+    const desktop = page.getByRole('dialog', { name: pc });
+    await desktop.getByRole('button', { name: 'Command Prompt' }).dblclick();
+    await desktop.locator('.console-host').click();
+    await page.keyboard.type(line);
+    await page.keyboard.press('Enter');
+    await desktop.getByRole('button', { name: `Close ${pc}` }).click();
+  };
+
+  await onPc('PC1', 'ipconfig 192.168.1.10 255.255.255.0');
+  await expect(steps).toHaveCount(2);
+  await expect(steps.first()).toContainText('makes the first three octets the network');
+
+  for (const { device, line } of SOLUTIONS['ip-practice']!.filter((e) => e.device !== 'PC1')) {
+    await onPc(device, line);
+  }
+  await expect(page.getByTitle('7 of 7 objectives met')).toBeVisible();
+  await expect(steps).toHaveCount(7);
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await expect(page.getByText('Lab complete! +50 XP')).toBeVisible();
 });

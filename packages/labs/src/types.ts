@@ -11,6 +11,8 @@ export type CcnaDomain =
 export interface Objective {
   label: string;
   check: Check;
+  /** Guided labs: why this works, shown once the step is met. */
+  why?: string;
 }
 
 export interface Lab {
@@ -26,4 +28,6 @@ export interface Lab {
   objectives: Objective[];
   /** Revealed one at a time; each costs 10% of the lab's XP. */
   hints: string[];
+  /** Guided practice: objectives appear one at a time, in order, with explanations. */
+  guided?: boolean;
 }

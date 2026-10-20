@@ -7,7 +7,9 @@ export const ipAddressing: Module = {
   summary:
     'Read an IPv4 address in binary, find its network, broadcast and usable range, and size subnets fast.',
   ccnaDomain: 'Network Fundamentals',
+  practice: 'ip-practice',
   trainer: 'subnetting',
+  challenge: 'address-the-office',
   lesson: [
     {
       id: 'binary',

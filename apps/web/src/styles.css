@@ -1632,6 +1632,42 @@ input:disabled {
   color: var(--text-3);
 }
 
+/* Guided practice: numbered steps, the current one highlighted, explanations under met ones. */
+.objectives.steps li.current {
+  margin: 0 -0.6rem;
+  padding: 0.6rem;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.objectives.steps li.current .check {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.objectives.steps .check .mono {
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.step-text {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.objectives.steps li.met .step-text > span:first-child {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--border-strong);
+}
+
+.objectives.steps .why {
+  color: var(--text-2);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
 .hints {
   margin: 0;
   padding-left: 1.2rem;

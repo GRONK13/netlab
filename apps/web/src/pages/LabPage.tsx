@@ -38,7 +38,8 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
   const [epoch, setEpoch] = useState(0);
   const [, setTick] = useState(0);
   const [positions, setPositions] = useState<Positions>(() => (lab ? loadPositions(lab) : {}));
-  const [tab, setTab] = useState<Tab>('task');
+  // Guided practice opens on its steps; graded labs on the task.
+  const [tab, setTab] = useState<Tab>(lab?.guided ? 'objectives' : 'task');
   const [hintsUsed, setHintsUsed] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [restored, setRestored] = useState(0);
@@ -111,6 +112,9 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
   const net = netRef.current;
   const live = net ? evaluateAll(net, lab.objectives.map((o) => o.check)) : [];
   const doneCount = live.filter(Boolean).length;
+  const firstOpen = live.findIndex((met) => !met);
+  // Nothing to show until the network has loaded and been checked.
+  const shownSteps = !net ? 0 : firstOpen === -1 ? lab.objectives.length : firstOpen + 1;
   const alreadyDone = completed || me.completions.some((c) => c.labId === lab.id);
 
   const onLine = (device: string, line: string) => {
@@ -205,7 +209,7 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
               Task
             </button>
             <button role="tab" aria-selected={tab === 'objectives'} onClick={() => setTab('objectives')}>
-              Objectives <span className="count mono">{doneCount}/{lab.objectives.length}</span>
+              {lab.guided ? 'Steps' : 'Objectives'} <span className="count mono">{doneCount}/{lab.objectives.length}</span>
             </button>
             <button role="tab" aria-selected={tab === 'hints'} onClick={() => setTab('hints')}>
               Hints {hintsUsed > 0 && <span className="count mono">{hintsUsed}</span>}
@@ -255,7 +259,37 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
               </>
             )}
 
-            {tab === 'objectives' && (
+            {tab === 'objectives' && lab.guided && (
+              <>
+                {/* Steps up to the first unmet one are shown; the rest unlock as the student goes. */}
+                <ol className="objectives steps">
+                  {lab.objectives.slice(0, shownSteps).map((o, i) => (
+                    <li key={i} className={live[i] ? 'met' : 'current'}>
+                      <span className="check" aria-hidden="true">
+                        {live[i] ? <Check size={12} strokeWidth={3} /> : <span className="mono">{i + 1}</span>}
+                      </span>
+                      <span className="step-text">
+                        <span>{o.label}</span>
+                        {live[i] && o.why && (
+                          <span className="why">
+                            <Inline text={o.why} />
+                          </span>
+                        )}
+                      </span>
+                      <span className="sr-only">{live[i] ? '(done)' : '(current step)'}</span>
+                    </li>
+                  ))}
+                </ol>
+                {net && shownSteps < lab.objectives.length && (
+                  <p className="muted small">
+                    {lab.objectives.length - shownSteps} more step{lab.objectives.length - shownSteps > 1 ? 's' : ''}{' '}
+                    unlock as you go.
+                  </p>
+                )}
+              </>
+            )}
+
+            {tab === 'objectives' && !lab.guided && (
               <ul className="objectives">
                 {lab.objectives.map((o, i) => (
                   <li key={i} className={live[i] ? 'met' : undefined}>

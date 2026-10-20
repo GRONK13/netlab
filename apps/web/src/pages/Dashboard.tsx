@@ -9,13 +9,14 @@ import { stepsFor } from '../moduleSteps.ts';
 const pad = (n: number) => String(n).padStart(2, '0');
 
 export function Dashboard({ me }: { me: Me }) {
-  const done = new Map(me.completions.map((c) => [c.labId, c]));
+  // Graded labs only: guided practice completions count toward modules, not here.
+  const done = new Map(me.completions.filter((c) => LABS.some((l) => l.id === c.labId)).map((c) => [c.labId, c]));
   const next = LABS.find((l) => !done.has(l.id));
   const modules = MODULES.map((m) => ({ m, steps: stepsFor(m, me) }));
   // Modules come first: the first unfinished one decides what's up next.
   const nextModule = modules.find(({ steps }) => steps.some((s) => !s.done));
   const nextStep = nextModule?.steps.find((s) => !s.done);
-  const fresh = done.size === 0 && me.moduleSteps.length === 0;
+  const fresh = me.completions.length === 0 && me.moduleSteps.length === 0;
   const first = me.user.displayName.split(/\s+/)[0];
   const lv = me.level;
 

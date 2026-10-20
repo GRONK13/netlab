@@ -3,6 +3,7 @@
 
 import { stableStringify, vlanAllowed } from './config.ts';
 import { formatInterface, parseInterfaceName } from './interfaces.ts';
+import { inSubnet, isIp, maskToPrefix, parseCidr, subnetOf } from './ipv4.ts';
 import type { Network } from './network.ts';
 
 export type Check =
@@ -18,15 +19,48 @@ export type Check =
   | { type: 'trunkAllows'; device: string; port: string; vlans: number[] }
   | { type: 'interfaceUp'; device: string; port: string }
   | { type: 'subinterface'; device: string; port: string; vlan: number; ip: string; mask: string }
-  | { type: 'ping'; from: string; to: string; expect: boolean };
+  /** `to` is an IP address, or a PC's device id to ping whatever address it has. */
+  | { type: 'ping'; from: string; to: string; expect: boolean }
+  /**
+   * The device's address (a PC's, or a router interface's when `port` is set) is a usable
+   * host in `network` (CIDR) with the matching mask; with `ip`, exactly that address.
+   */
+  | { type: 'address'; device: string; port?: string; network: string; ip?: string }
+  | { type: 'gateway'; device: string; ip: string }
+  /** Every check passes: one objective for things that belong together. */
+  | { type: 'all'; checks: Check[] };
 
 function canon(port: string): string {
   const p = parseInterfaceName(port);
   return p ? formatInterface(p) : port;
 }
 
+function addressOf(net: Network, device: string, port?: string): { ip: string; mask: string } | undefined {
+  const dev = net.devices.get(device);
+  if (!port) {
+    const pc = dev?.running.pc;
+    return pc?.ip && pc.mask ? { ip: pc.ip, mask: pc.mask } : undefined;
+  }
+  const ip = dev?.iface(canon(port))?.ip;
+  return ip ? { ip: ip.address, mask: ip.mask } : undefined;
+}
+
 export function evaluate(net: Network, c: Check): boolean {
-  if (c.type === 'ping') return net.ping(c.from, c.to).success === c.expect;
+  if (c.type === 'all') return c.checks.every((x) => evaluate(net, x));
+  if (c.type === 'ping') {
+    const to = isIp(c.to) ? c.to : net.devices.get(c.to)?.running.pc?.ip;
+    // A target with no address can't be reached.
+    if (!to) return !c.expect;
+    return net.ping(c.from, to).success === c.expect;
+  }
+  if (c.type === 'address') {
+    const want = parseCidr(c.network);
+    const have = addressOf(net, c.device, c.port);
+    if (!want || !have || maskToPrefix(have.mask) !== want.prefix) return false;
+    if (c.ip) return have.ip === c.ip;
+    const s = subnetOf(want.ip, want.prefix);
+    return inSubnet(have.ip, s.network, s.prefix) && have.ip !== s.network && have.ip !== s.broadcast;
+  }
   const dev = net.devices.get(c.device);
   if (!dev) return false;
   const cfg = dev.running;
@@ -60,6 +94,8 @@ export function evaluate(net: Network, c: Check): boolean {
     }
     case 'interfaceUp':
       return net.ifaceUp(dev.id, canon(c.port));
+    case 'gateway':
+      return cfg.pc?.gateway === c.ip;
     case 'subinterface': {
       const i = dev.iface(canon(c.port));
       return (
