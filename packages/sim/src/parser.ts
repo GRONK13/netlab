@@ -10,6 +10,7 @@ export type ParamType =
   | 'vlan'
   | 'vlanlist'
   | 'line'
+  | 'length'
   | 'ip'
   | 'mask'
   | 'iface'
@@ -50,6 +51,11 @@ const PARAM_TYPES: Record<ParamType, ParamTypeInfo> = {
   },
   vlanlist: { label: 'WORD', help: 'VLAN IDs of the allowed VLANs', test: (t) => parseVlanList(t) !== null },
   line: { label: '<0-15>', help: 'First Line number', test: (t) => /^\d+$/.test(t) && Number(t) <= 15 },
+  length: {
+    label: '<0-512>',
+    help: 'Number of lines on screen (0 for no pausing)',
+    test: (t) => /^\d+$/.test(t) && Number(t) <= 512,
+  },
   ip: { label: 'A.B.C.D', help: 'IP address', test: isIp },
   mask: { label: 'A.B.C.D', help: 'IP subnet mask', test: isMask },
   iface: { label: 'WORD', help: 'Interface name, e.g. fa0/1', test: (t) => parseInterfaceName(t) !== null },

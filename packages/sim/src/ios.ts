@@ -139,6 +139,9 @@ function addExecCommon(t: CommandTree<Ctx>): void {
   t.add('ping <target:ip>', { target: 'Ping destination address' }, ({ net, dev }, a) =>
     routerPingOutput(net, dev.id, a.target!),
   );
+  t.add('terminal length <lines:length>', { terminal: 'Set terminal line parameters', length: 'Set number of lines on a screen' }, ({ dev }, a) => {
+    dev.session.termLength = Number(a.lines);
+  });
 }
 
 function buildUser(kind: DeviceKind): CommandTree<Ctx> {

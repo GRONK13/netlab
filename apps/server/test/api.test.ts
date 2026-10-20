@@ -1,3 +1,4 @@
+import { Network } from '@netlab/sim';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SOLUTIONS } from '../../../packages/labs/test/solutions.ts';
@@ -130,6 +131,23 @@ describe('labs and XP', () => {
     const huge = Array.from({ length: 5001 }, () => ({ device: 'SW1', line: 'en' }));
     expect((await post('/api/labs/switch-basics/submit', cookie, { log: huge })).statusCode).toBe(400);
     expect((await post('/api/labs/nope/submit', cookie, { log: [] })).statusCode).toBe(404);
+  });
+
+  it('saves and loads a sandbox, rejecting broken ones', async () => {
+    const empty = await app.inject({ method: 'GET', url: '/api/sandbox', headers: { cookie } });
+    expect(empty.json()).toEqual({ snapshot: null });
+    const net = new Network({ devices: [], links: [] });
+    net.addDevice('switch', 50, 40);
+    net.addDevice('pc', 20, 80);
+    net.connect({ device: 'Switch0', port: 'FastEthernet0/1' }, { device: 'PC0', port: 'FastEthernet0' });
+    const put = await app.inject({ method: 'PUT', url: '/api/sandbox', headers: { cookie }, payload: { snapshot: net.snapshot() } });
+    expect(put.statusCode).toBe(204);
+    const got = await app.inject({ method: 'GET', url: '/api/sandbox', headers: { cookie } });
+    expect(got.json().snapshot.topology.links).toHaveLength(1);
+    const bad = net.snapshot();
+    bad.topology.devices[0]!.kind = 'toaster' as never;
+    const rejected = await app.inject({ method: 'PUT', url: '/api/sandbox', headers: { cookie }, payload: { snapshot: bad } });
+    expect(rejected.statusCode).toBe(400);
   });
 
   it('ranks students on the leaderboard', async () => {

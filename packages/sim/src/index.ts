@@ -1,4 +1,4 @@
-export { Network, Device, type Mode, type Session } from './network.ts';
+export { Network, Device, LIMITS, type Mode, type Session, type NetworkSnapshot } from './network.ts';
 export { evaluate, evaluateAll, type Check } from './checks.ts';
 export { ping, type PingResult } from './ping.ts';
 export { shortName, physicalPorts } from './interfaces.ts';

@@ -73,6 +73,13 @@ const MIGRATIONS: string[] = [
     primary key (user_id, lab_id)
   );
   `,
+  `
+  create table sandboxes (
+    user_id integer primary key references users(id) on delete cascade,
+    data jsonb not null,
+    updated_at timestamptz not null default now()
+  );
+  `,
 ];
 
 export async function migrate(db: Db): Promise<number> {

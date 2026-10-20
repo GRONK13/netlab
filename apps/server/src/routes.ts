@@ -1,5 +1,5 @@
 import { getLab, LABS, levelFor, MAX_HINTS, xpAward } from '@netlab/labs';
-import { evaluateAll, Network, type LogEntry } from '@netlab/sim';
+import { evaluateAll, Network, type LogEntry, type NetworkSnapshot } from '@netlab/sim';
 import type { FastifyInstance } from 'fastify';
 import { requireUser } from './auth.ts';
 import type { Db } from './db.ts';
@@ -131,6 +131,35 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
       }
       const xp = await totalXp(db, user.id);
       return { passed, results, xpAwarded, alreadyCompleted, level: levelFor(xp) };
+    },
+  );
+
+  app.get('/api/sandbox', async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!user) return;
+    const [row] = await db.query<{ data: NetworkSnapshot }>('select data from sandboxes where user_id = $1', [user.id]);
+    return { snapshot: row?.data ?? null };
+  });
+
+  app.put<{ Body: { snapshot: NetworkSnapshot } }>(
+    '/api/sandbox',
+    { bodyLimit: 512 * 1024, schema: { body: { type: 'object', required: ['snapshot'], properties: { snapshot: { type: 'object' } } } } },
+    async (req, reply) => {
+      const user = requireUser(req, reply);
+      if (!user) return;
+      // Rebuilding it is the validation: bad ids, ports or sizes throw.
+      let clean: NetworkSnapshot;
+      try {
+        clean = Network.fromSnapshot(req.body.snapshot).snapshot();
+      } catch (e) {
+        return reply.code(400).send({ error: e instanceof Error ? e.message : 'Invalid topology.' });
+      }
+      await db.query(
+        `insert into sandboxes (user_id, data) values ($1, $2::jsonb)
+         on conflict (user_id) do update set data = excluded.data, updated_at = now()`,
+        [user.id, JSON.stringify(clean)],
+      );
+      return reply.code(204).send();
     },
   );
 

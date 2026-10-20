@@ -1,5 +1,5 @@
 import { clone, defaultConfig } from './config.ts';
-import { parentInterface } from './interfaces.ts';
+import { parentInterface, physicalPorts } from './interfaces.ts';
 import { iosTrees, type IosTrees } from './ios.ts';
 import { complete, help, match, type CommandTree, type MatchResult } from './parser.ts';
 import { pcTree, PC_PROMPT } from './pc.ts';
@@ -40,6 +40,16 @@ export interface Session {
   /** VLANs selected by `vlan 10,20`. */
   vlans: number[];
   pending: Pending | null;
+  /** `terminal length`: lines per screen before --More--, 0 = no paging. */
+  termLength: number;
+}
+
+export const LIMITS = { devices: 24, links: 48 };
+
+export interface NetworkSnapshot {
+  version: 1;
+  topology: TopologySpec;
+  configs: Record<string, { running: DeviceConfig; startup: DeviceConfig | null }>;
 }
 
 export interface Ctx {
@@ -64,7 +74,7 @@ export class Device {
   }
 
   static freshSession(): Session {
-    return { mode: 'user', ifaces: [], lines: null, vlans: [], pending: null };
+    return { mode: 'user', ifaces: [], lines: null, vlans: [], pending: null, termLength: 24 };
   }
 
   get model(): string {
@@ -83,8 +93,9 @@ export class Network {
   readonly topology: TopologySpec;
 
   constructor(topology: TopologySpec) {
-    this.topology = topology;
-    for (const spec of topology.devices) this.devices.set(spec.id, new Device(spec));
+    // Own copy: the sandbox edits devices and links in place.
+    this.topology = clone(topology);
+    for (const spec of this.topology.devices) this.devices.set(spec.id, new Device(spec));
     for (const [id, lines] of Object.entries(topology.setup ?? {})) {
       for (const line of lines) this.exec(id, line);
       const dev = this.devices.get(id);
@@ -136,6 +147,104 @@ export class Network {
 
   ping(from: string, toIp: string): PingResult {
     return ping(this, from, toIp);
+  }
+
+  // ---- Editing (sandbox) --------------------------------------------------
+
+  /** Next free Packet Tracer-style id for a kind: Switch0, Router1, PC2... */
+  nextId(kind: DeviceKind): string {
+    const base = kind === 'switch' ? 'Switch' : kind === 'router' ? 'Router' : 'PC';
+    let n = 0;
+    while (this.devices.has(`${base}${n}`)) n++;
+    return `${base}${n}`;
+  }
+
+  addDevice(kind: DeviceKind, x: number, y: number): Device {
+    if (this.devices.size >= LIMITS.devices) throw new Error(`A topology can have at most ${LIMITS.devices} devices.`);
+    const spec: DeviceSpec = { id: this.nextId(kind), kind, x, y };
+    this.topology.devices.push(spec);
+    const dev = new Device(spec);
+    this.devices.set(spec.id, dev);
+    return dev;
+  }
+
+  removeDevice(id: string): void {
+    this.topology.links = this.topology.links.filter((l) => l.a.device !== id && l.b.device !== id);
+    this.topology.devices = this.topology.devices.filter((d) => d.id !== id);
+    this.devices.delete(id);
+  }
+
+  moveDevice(id: string, x: number, y: number): void {
+    const spec = this.topology.devices.find((d) => d.id === id);
+    if (spec) {
+      spec.x = x;
+      spec.y = y;
+    }
+  }
+
+  /** Ports with no cable plugged in. */
+  freePorts(deviceId: string): string[] {
+    const dev = this.devices.get(deviceId);
+    if (!dev) return [];
+    return physicalPorts(dev.kind).filter((p) => !this.peer(deviceId, p));
+  }
+
+  /** Plugs in a cable. Returns an error message, or null on success. */
+  connect(a: LinkEnd, b: LinkEnd): string | null {
+    if (a.device === b.device) return 'A cable needs two different devices.';
+    for (const end of [a, b]) {
+      const dev = this.devices.get(end.device);
+      if (!dev || !physicalPorts(dev.kind).includes(end.port)) return `${end.device} has no port ${end.port}.`;
+      if (this.peer(end.device, end.port)) return `${end.device} ${end.port} already has a cable.`;
+    }
+    if (this.topology.links.length >= LIMITS.links) return `A topology can have at most ${LIMITS.links} cables.`;
+    this.topology.links.push({ a, b });
+    return null;
+  }
+
+  disconnect(deviceId: string, port: string): void {
+    this.topology.links = this.topology.links.filter(
+      (l) => !(l.a.device === deviceId && l.a.port === port) && !(l.b.device === deviceId && l.b.port === port),
+    );
+  }
+
+  /** Everything needed to rebuild this network later: layout, cables and every config. */
+  snapshot(): NetworkSnapshot {
+    const configs: NetworkSnapshot['configs'] = {};
+    for (const dev of this.devices.values()) configs[dev.id] = { running: dev.running, startup: dev.startup };
+    return clone({ version: 1, topology: { devices: this.topology.devices, links: this.topology.links }, configs });
+  }
+
+  /** Rebuilds a network from a snapshot. Throws if the snapshot is malformed. */
+  static fromSnapshot(s: NetworkSnapshot): Network {
+    const t = s?.topology;
+    if (s?.version !== 1 || !Array.isArray(t?.devices) || !Array.isArray(t?.links)) throw new Error('Not a NetLab topology.');
+    if (t.devices.length > LIMITS.devices || t.links.length > LIMITS.links) throw new Error('Topology is too big.');
+    const ids = new Set<string>();
+    for (const d of t.devices) {
+      if (!/^[A-Za-z0-9_-]{1,20}$/.test(d.id) || ids.has(d.id)) throw new Error('Bad device id.');
+      if (!['switch', 'router', 'pc'].includes(d.kind)) throw new Error('Bad device kind.');
+      if (typeof d.x !== 'number' || typeof d.y !== 'number') throw new Error('Bad device position.');
+      ids.add(d.id);
+    }
+    const net = new Network({ devices: t.devices, links: [] });
+    for (const l of t.links) {
+      const err = net.connect(l.a, l.b);
+      if (err) throw new Error(err);
+    }
+    for (const [id, c] of Object.entries(s.configs ?? {})) {
+      const dev = net.devices.get(id);
+      if (!dev || !c?.running?.interfaces) continue;
+      dev.running = clone(c.running);
+      dev.startup = c.startup ? clone(c.startup) : null;
+    }
+    return net;
+  }
+
+  /** Lines per page before `--More--`; 0 means never pause (`terminal length 0`). */
+  pageLength(deviceId: string): number {
+    const dev = this.devices.get(deviceId);
+    return !dev || dev.kind === 'pc' ? 0 : dev.session.termLength;
   }
 
   // ---- Terminal API -------------------------------------------------------
