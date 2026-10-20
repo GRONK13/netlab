@@ -40,7 +40,7 @@ The **IP Configuration** app on the desktop does the same as \`ipconfig\`. Each 
       why: 'PC2 has the same network bits, 192.168.1, so PC1 and PC2 are on the same network.',
     },
     {
-      label: 'Ping PC2 from PC1 and check it answers',
+      label: 'PC1 can reach PC2 (try ping 192.168.1.20 from PC1)',
       check: { type: 'ping', from: 'PC1', to: 'PC2', expect: true },
       why: "Same network, so PC1 sends straight to PC2: it finds PC2's MAC address with ARP and the switch delivers the frame. No router needed.",
     },
@@ -50,7 +50,7 @@ The **IP Configuration** app on the desktop does the same as \`ipconfig\`. Each 
       why: '192.168.2 is a different network, even though PC3 is plugged into the same switch.',
     },
     {
-      label: 'Ping PC3 from PC1: it should fail',
+      label: "PC1 can't reach PC3 (try ping 192.168.2.30 from PC1)",
       check: {
         type: 'all',
         checks: [
@@ -66,7 +66,8 @@ The **IP Configuration** app on the desktop does the same as \`ipconfig\`. Each 
       why: "With a /25, PC4's network is 192.168.1.128 to 192.168.1.255. It no longer counts 192.168.1.10 as a neighbour.",
     },
     {
-      label: 'Ping PC4 from PC1: it fails too, even though both start with 192.168.1',
+      label:
+        "PC1 can't reach PC4 either, though both start with 192.168.1 (try ping 192.168.1.200)",
       check: {
         type: 'all',
         checks: [
