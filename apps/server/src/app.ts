@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
@@ -7,6 +8,15 @@ import { authRoutes, loadUser } from './auth.ts';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
 import { apiRoutes } from './routes.ts';
+
+/** The deployed git commit, so `/api/health` shows which version is live. */
+const COMMIT = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'unknown';
+  }
+})();
 
 const SECURITY_HEADERS = {
   'x-content-type-options': 'nosniff',
@@ -42,7 +52,7 @@ export async function buildApp(db: Db, config: Config): Promise<FastifyInstance>
 
   authRoutes(app, db, config);
   apiRoutes(app, db);
-  app.get('/api/health', async () => ({ ok: true }));
+  app.get('/api/health', async () => ({ ok: true, commit: COMMIT }));
 
   if (existsSync(config.webDist)) {
     await app.register(fastifyStatic, { root: config.webDist, wildcard: false });
