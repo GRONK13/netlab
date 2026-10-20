@@ -26,6 +26,7 @@ npm install
 npm run dev        # API on :3001 (embedded PGlite database in .data/) + web on :5173
 npm test           # simulator, labs and API tests
 npm run typecheck
+npm run e2e        # build, then browser smoke tests (first time: npx playwright install chromium)
 ```
 
 Open http://localhost:5173 and create an account. Locally, any email can register unless `ALLOWED_EMAIL_DOMAIN` is set.
@@ -41,7 +42,7 @@ Available checks are in `packages/sim/src/checks.ts`. New IOS commands go in `pa
 ## CI/CD
 
 ```
-push to main ──► GitHub Actions: typecheck, test, build ──► green? push commit to `deploy` branch
+push to main ──► GitHub Actions: typecheck, test, build, browser smoke tests ──► green? push commit to `deploy` branch
                                                                    │
 netlab.dcism.org: cron runs scripts/deploy.sh every 2 min ◄────────┘
   fetch `deploy` → npm ci (if lockfile changed) → build → pm2 restart → health check → roll back on failure
@@ -82,3 +83,19 @@ Then add the cron jobs (auto-deploy, and pm2 restart after a server reboot):
 ```bash
 (crontab -l 2>/dev/null; echo "*/2 * * * * $HOME/netlab.dcism.org/scripts/deploy.sh"; echo "@reboot $(command -v pm2) resurrect") | crontab -
 ```
+
+## Backups
+
+`scripts/backup.ts` dumps the database nightly to `~/backups/netlab/netlab-YYYY-MM-DD.sql.gz` (owner-only permissions, newest 14 kept). Every Sunday `scripts/restore-check.ts` loads the newest backup into a throwaway in-memory database and counts every table's rows, so a broken backup gets noticed. Both log to `.data/backup.log`.
+
+```bash
+(crontab -l; echo "30 2 * * * cd $HOME/netlab.dcism.org && node scripts/backup.ts >> .data/backup.log 2>&1"; echo "45 2 * * 0 cd $HOME/netlab.dcism.org && node scripts/restore-check.ts >> .data/backup.log 2>&1") | crontab -
+```
+
+Restore into an empty Postgres database. psql asks for the password, which keeps it out of the process list on the shared server:
+
+```bash
+gunzip -c ~/backups/netlab/netlab-YYYY-MM-DD.sql.gz | psql -h 127.0.0.1 -U <db-user> -d <db-name>
+```
+
+Keep a copy off the server, from your own computer: `scp 'ver:backups/netlab/*.sql.gz' .`

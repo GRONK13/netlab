@@ -16,10 +16,12 @@
     "start": "npm run start -w @netlab/server",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p packages/sim && tsc -p packages/labs && tsc -p apps/server && tsc -p apps/web",
+    "e2e": "npm run build && playwright test",
+    "typecheck": "tsc -p packages/sim && tsc -p packages/labs && tsc -p apps/server && tsc -p apps/web && tsc -p scripts && tsc -p e2e",
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
     "concurrently": "^10.0.6",
     "prettier": "^3.9.10",
