@@ -56,7 +56,9 @@ export function Markdown({ text }: { text: string }) {
         </aside>,
       );
     } else if (line.startsWith('|')) {
-      const [head = '', , ...body] = run((l) => l.startsWith('|'));
+      const [head = '', ...rest] = run((l) => l.startsWith('|'));
+      // Skip the |---| separator row when there is one.
+      const body = /^\|[\s:|-]+\|?$/.test(rest[0] ?? '') ? rest.slice(1) : rest;
       out.push(
         <div key={key} className="table-wrap">
           <table className="lesson-table">

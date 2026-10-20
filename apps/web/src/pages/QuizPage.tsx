@@ -117,6 +117,8 @@ export function QuizPage({
       setError(
         e instanceof ApiError ? e.message : "Couldn't submit. Check your connection and try again.",
       );
+      // An expired or already-submitted attempt is dead: go back to the Start button.
+      if (e instanceof ApiError && (e.status === 409 || e.status === 410)) setAttempt(null);
     } finally {
       setBusy(false);
     }
