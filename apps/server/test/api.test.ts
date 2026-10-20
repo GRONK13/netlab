@@ -1,3 +1,4 @@
+import { solve, type Problem } from '@netlab/modules';
 import { Network } from '@netlab/sim';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -153,5 +154,105 @@ describe('labs and XP', () => {
   it('ranks students on the leaderboard', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/leaderboard', headers: { cookie } });
     expect(res.json().entries[0]).toMatchObject({ place: 1, displayName: 'Carol', xp: 135, labs: 1, rank: 'Patch Panel Pro' });
+  });
+});
+
+describe('subnetting trainer', () => {
+  let cookie: string;
+  beforeAll(async () => {
+    cookie = (await register('dave@school.edu', 'Dave')).cookie;
+  });
+
+  const start = async (who = cookie) => {
+    const res = await post('/api/trainer/subnetting/start', who);
+    expect(res.statusCode).toBe(200);
+    return res.json() as { roundId: number; problems: Problem[] };
+  };
+  const finish = (roundId: number, answers: string[], who = cookie) =>
+    post(`/api/trainer/rounds/${roundId}/finish`, who, { answers });
+
+  it('describes the trainer, and 404s unknown kinds', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/trainer/subnetting',
+      headers: { cookie },
+    });
+    expect(res.json()).toMatchObject({
+      spec: { problems: 10, target: 8, xp: 50 },
+      best: null,
+      earned: false,
+    });
+    for (const kind of ['nope', '__proto__', 'constructor']) {
+      expect(
+        (await app.inject({ method: 'GET', url: `/api/trainer/${kind}`, headers: { cookie } }))
+          .statusCode,
+      ).toBe(404);
+      expect((await post(`/api/trainer/${kind}/start`, cookie)).statusCode).toBe(404);
+    }
+  });
+
+  it('sends problems without answers', async () => {
+    const round = await start();
+    expect(round.problems).toHaveLength(10);
+    expect(JSON.stringify(round)).not.toContain('"answers"');
+    await finish(round.roundId, []);
+  });
+
+  it('grades on the server and awards XP once', async () => {
+    const first = await start();
+    const res = await finish(first.roundId, first.problems.map(solve));
+    expect(res.json()).toMatchObject({ correct: 10, total: 10, qualified: true, xpAwarded: 50 });
+    expect(res.json().level.xp).toBe(50);
+    expect((await finish(first.roundId, first.problems.map(solve))).statusCode).toBe(409);
+
+    const second = await start();
+    const again = await finish(second.roundId, second.problems.map(solve));
+    expect(again.json()).toMatchObject({ qualified: true, xpAwarded: 0, best: { correct: 10 } });
+    const me = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
+    expect(me.json().level.xp).toBe(50);
+    expect(me.json().moduleSteps).toMatchObject([
+      { moduleId: 'ip-addressing', step: 'trainer', xpAwarded: 50 },
+    ]);
+  });
+
+  it('needs 8 correct within the time limit, measured by the server', async () => {
+    const erin = (await register('erin@school.edu', 'Erin')).cookie;
+    const short = await start(erin);
+    const answers = short.problems.map(solve);
+    answers[0] = answers[1] = answers[2] = 'wrong';
+    expect((await finish(short.roundId, answers, erin)).json()).toMatchObject({
+      correct: 7,
+      qualified: false,
+      xpAwarded: 0,
+    });
+
+    const slow = await start(erin);
+    await db.query(
+      `update trainer_rounds set started_at = now() - interval '6 minutes' where id = $1`,
+      [slow.roundId],
+    );
+    const late = await finish(slow.roundId, slow.problems.map(solve), erin);
+    expect(late.json()).toMatchObject({ correct: 10, qualified: false, xpAwarded: 0 });
+    expect(late.json().durationMs).toBeGreaterThan(5 * 60_000);
+  });
+
+  it("refuses someone else's round and malformed answers", async () => {
+    const round = await start();
+    const frank = (await register('frank@school.edu', 'Frank')).cookie;
+    expect((await finish(round.roundId, [], frank)).statusCode).toBe(404);
+    expect((await finish(round.roundId, ['x'.repeat(41)])).statusCode).toBe(400);
+    expect((await post('/api/trainer/rounds/abc/finish', cookie, { answers: [] })).statusCode).toBe(
+      400,
+    );
+  });
+
+  it('counts trainer XP on the leaderboard but not as a lab', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/leaderboard', headers: { cookie } });
+    expect(res.json().entries).toContainEqual(
+      expect.objectContaining({ displayName: 'Dave', xp: 50, labs: 0 }),
+    );
+    expect(res.json().entries.map((e: { displayName: string }) => e.displayName)).not.toContain(
+      'Frank',
+    );
   });
 });

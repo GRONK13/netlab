@@ -17,7 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "npm run build && playwright test",
-    "typecheck": "tsc -p packages/sim && tsc -p packages/labs && tsc -p apps/server && tsc -p apps/web && tsc -p scripts && tsc -p e2e",
+    "typecheck": "tsc -p packages/sim && tsc -p packages/labs && tsc -p packages/modules && tsc -p apps/server && tsc -p apps/web && tsc -p scripts && tsc -p e2e",
     "format": "prettier --write ."
   },
   "devDependencies": {

@@ -1,4 +1,5 @@
 import type { LevelInfo } from '@netlab/labs';
+import type { Problem, TrainerSpec } from '@netlab/modules';
 import type { LogEntry, NetworkSnapshot } from '@netlab/sim';
 
 export interface User {
@@ -12,6 +13,30 @@ export interface Me {
   user: User;
   level: LevelInfo;
   completions: { labId: string; xpAwarded: number; completedAt: string }[];
+  moduleSteps: { moduleId: string; step: 'lesson' | 'trainer' | 'quiz'; xpAwarded: number; completedAt: string }[];
+}
+
+export interface TrainerBest {
+  correct: number;
+  durationMs: number;
+}
+
+export interface TrainerInfo {
+  spec: TrainerSpec;
+  best: TrainerBest | null;
+  earned: boolean;
+}
+
+export interface TrainerResult {
+  correct: number;
+  total: number;
+  results: boolean[];
+  answers: string[];
+  durationMs: number;
+  qualified: boolean;
+  xpAwarded: number;
+  best: TrainerBest | null;
+  level: LevelInfo;
 }
 
 export interface Attempt {
@@ -72,4 +97,8 @@ export const api = {
   sandbox: () => call<{ snapshot: NetworkSnapshot | null }>('GET', '/api/sandbox'),
   saveSandbox: (snapshot: NetworkSnapshot, keepalive = false) =>
     call<void>('PUT', '/api/sandbox', { snapshot }, keepalive),
+  trainer: (kind: string) => call<TrainerInfo>('GET', `/api/trainer/${kind}`),
+  startRound: (kind: string) => call<{ roundId: number; problems: Problem[] }>('POST', `/api/trainer/${kind}/start`),
+  finishRound: (roundId: number, answers: string[]) =>
+    call<TrainerResult>('POST', `/api/trainer/rounds/${roundId}/finish`, { answers }),
 };

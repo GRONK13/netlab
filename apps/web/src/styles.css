@@ -814,6 +814,89 @@ button {
   gap: 0.1rem;
 }
 
+.line-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 36px;
+  color: var(--accent);
+}
+
+/* ---- subnetting trainer ---- */
+
+.trainer-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.trainer-top {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.trainer-top .grow {
+  flex: 1;
+}
+
+.trainer-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trainer-clock.over {
+  color: var(--warning);
+}
+
+.trainer-prompt {
+  margin: 0.5rem 0 0;
+  font-family: var(--mono);
+  font-size: 1.45rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.trainer-form {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.trainer-form input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  height: 46px;
+  font-family: var(--mono);
+  font-size: 1.15rem;
+}
+
+.trainer-form .btn {
+  height: 46px;
+}
+
+.trainer-feedback {
+  min-height: 1.6rem;
+  margin: 0;
+}
+
+.trainer-feedback .bad,
+.answer-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .device-glyph {
   display: block;
   flex: none;

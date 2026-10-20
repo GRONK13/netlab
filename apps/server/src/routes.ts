@@ -27,9 +27,9 @@ const logBody = {
   properties: { log: logSchema },
 } as const;
 
-async function totalXp(db: Db, userId: number): Promise<number> {
+export async function totalXp(db: Db, userId: number): Promise<number> {
   const [r] = await db.query<{ xp: number }>(
-    'select coalesce(sum(xp_awarded), 0)::int as xp from completions where user_id = $1',
+    'select coalesce(sum(xp), 0)::int as xp from xp_events where user_id = $1',
     [userId],
   );
   return r?.xp ?? 0;
@@ -51,11 +51,20 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
       'select lab_id, xp_awarded, completed_at from completions where user_id = $1',
       [user.id],
     );
-    const xp = completions.reduce((s, c) => s + c.xp_awarded, 0);
+    const steps = await db.query<{ module_id: string; step: string; xp_awarded: number; completed_at: string }>(
+      'select module_id, step, xp_awarded, completed_at from module_steps where user_id = $1',
+      [user.id],
+    );
     return {
       user,
-      level: levelFor(xp),
+      level: levelFor(await totalXp(db, user.id)),
       completions: completions.map((c) => ({ labId: c.lab_id, xpAwarded: c.xp_awarded, completedAt: c.completed_at })),
+      moduleSteps: steps.map((s) => ({
+        moduleId: s.module_id,
+        step: s.step,
+        xpAwarded: s.xp_awarded,
+        completedAt: s.completed_at,
+      })),
     };
   });
 
@@ -165,12 +174,16 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
 
   app.get('/api/leaderboard', async (req, reply) => {
     if (!requireUser(req, reply)) return;
+    // XP counts every source; "labs" counts only the graded labs.
     const rows = await db.query<{ display_name: string; xp: number; labs: number }>(
-      `select u.display_name, sum(c.xp_awarded)::int as xp, count(*)::int as labs
-       from completions c join users u on u.id = c.user_id
+      `select u.display_name, sum(e.xp)::int as xp,
+              count(*) filter (where e.source = 'lab' and e.ref = any($1::text[]))::int as labs
+       from xp_events e join users u on u.id = e.user_id
        group by u.id, u.display_name
-       order by xp desc, max(c.completed_at) asc
+       having sum(e.xp) > 0
+       order by xp desc, max(e.at) filter (where e.xp > 0) asc
        limit 20`,
+      [LABS.map((l) => l.id)],
     );
     return {
       totalLabs: LABS.length,

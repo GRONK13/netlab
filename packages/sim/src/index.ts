@@ -13,6 +13,19 @@ export {
   type DeviceModel,
 } from './catalog.ts';
 export { shortName, physicalPorts } from './interfaces.ts';
+export {
+  inSubnet,
+  intToIp,
+  ipToInt,
+  isIp,
+  isMask,
+  maskToPrefix,
+  parseCidr,
+  prefixForHosts,
+  prefixToMask,
+  subnetOf,
+  type Subnet,
+} from './ipv4.ts';
 export { macFor } from './show.ts';
 export type {
   DeviceKind,

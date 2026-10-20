@@ -1,5 +1,5 @@
 import { LABS } from '@netlab/labs';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check, Timer } from 'lucide-react';
 import type { Me } from '../api.ts';
 import { DeviceGlyph } from '../components/DeviceIcon.tsx';
 import { LedMeter } from '../components/LevelCard.tsx';
@@ -91,6 +91,21 @@ export function Dashboard({ me }: { me: Me }) {
           })}
         </ol>
       </section>
+
+      <a href="#/trainer" className="sandbox-line">
+        <span className="line-icon" aria-hidden="true">
+          <Timer size={26} />
+        </span>
+        <span>
+          <strong>Subnetting trainer</strong>
+          <span className="muted">
+            {me.moduleSteps.some((s) => s.step === 'trainer')
+              ? 'Target hit. Keep drilling to beat your personal best.'
+              : 'Ten timed problems. Get 8 right within 5 minutes to earn 50 XP.'}
+          </span>
+        </span>
+        <ArrowRight size={18} />
+      </a>
 
       <a href="#/sandbox" className="sandbox-line">
         <span className="sandbox-icons" aria-hidden="true">

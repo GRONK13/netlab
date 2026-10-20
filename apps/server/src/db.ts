@@ -80,6 +80,32 @@ const MIGRATIONS: string[] = [
     updated_at timestamptz not null default now()
   );
   `,
+  `
+  create table module_steps (
+    user_id integer not null references users(id) on delete cascade,
+    module_id text not null,
+    step text not null check (step in ('lesson', 'trainer', 'quiz')),
+    xp_awarded integer not null default 0,
+    completed_at timestamptz not null default now(),
+    primary key (user_id, module_id, step)
+  );
+  create table trainer_rounds (
+    id serial primary key,
+    user_id integer not null references users(id) on delete cascade,
+    kind text not null,
+    seed integer not null,
+    started_at timestamptz not null default now(),
+    finished_at timestamptz,
+    correct integer,
+    duration_ms integer
+  );
+  create index trainer_rounds_user_idx on trainer_rounds(user_id, kind);
+  -- Every XP award, whatever earned it. Totals, levels and the leaderboard read this.
+  create view xp_events as
+    select user_id, 'lab' as source, lab_id as ref, xp_awarded as xp, completed_at as at from completions
+    union all
+    select user_id, 'module:' || step, module_id, xp_awarded, completed_at from module_steps;
+  `,
 ];
 
 export async function migrate(db: Db): Promise<number> {

@@ -1,0 +1,13 @@
+{
+  "name": "@netlab/modules",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Learning modules: lessons, quizzes and the subnetting trainer",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@netlab/sim": "*"
+  }
+}

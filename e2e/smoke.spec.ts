@@ -2,6 +2,7 @@
 // these fail, CI doesn't promote the commit, so it never reaches netlab.dcism.org.
 
 import { getLab } from '@netlab/labs';
+import { solve, type Problem } from '@netlab/modules';
 import { expect, test, type Page } from '@playwright/test';
 import { SOLUTIONS } from '../packages/labs/test/solutions.ts';
 
@@ -74,4 +75,29 @@ test('the sandbox saves a PC, and its desktop runs commands', async ({ page }) =
 
   await page.reload();
   await expect(pc).toBeVisible();
+});
+
+test('the subnetting trainer grades a round and awards XP once', async ({ page }) => {
+  await register(page, `Trainee${stamp}`);
+  await nav(page, 'Trainer').click();
+
+  const started = page.waitForResponse((r) => r.url().endsWith('/api/trainer/subnetting/start'));
+  await page.getByRole('button', { name: 'Start a round' }).click();
+  const { problems } = (await (await started).json()) as { problems: Problem[] };
+  const answer = page.getByRole('textbox', { name: /^Answer/ });
+
+  // One wrong answer: the right one is shown until Enter moves on.
+  await answer.fill('1.1.1.1');
+  await answer.press('Enter');
+  await expect(page.getByText(`The answer is ${solve(problems[0]!)}`)).toBeVisible();
+  await answer.press('Enter');
+
+  for (const p of problems.slice(1)) {
+    await answer.fill(solve(p));
+    await answer.press('Enter');
+  }
+  await expect(page.getByText(/^9\/10 in \d+:\d\d\. Target hit: \+50 XP!/)).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Main' }).locator('..').getByText('50 XP'),
+  ).toBeVisible();
 });

@@ -1,4 +1,4 @@
-import { Boxes, LayoutGrid, LogOut, Trophy } from 'lucide-react';
+import { Boxes, House, LogOut, Timer, Trophy } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, type Me } from './api.ts';
 import { LedMeter } from './components/LevelCard.tsx';
@@ -8,19 +8,27 @@ import { Dashboard } from './pages/Dashboard.tsx';
 import { LabPage } from './pages/LabPage.tsx';
 import { LeaderboardPage } from './pages/LeaderboardPage.tsx';
 import { SandboxPage } from './pages/SandboxPage.tsx';
+import { TrainerPage } from './pages/TrainerPage.tsx';
 
-type Route = { page: 'home' } | { page: 'lab'; id: string } | { page: 'sandbox' } | { page: 'leaderboard' };
+type Route =
+  | { page: 'home' }
+  | { page: 'lab'; id: string }
+  | { page: 'sandbox' }
+  | { page: 'trainer' }
+  | { page: 'leaderboard' };
 
 function parseHash(hash: string): Route {
   const lab = /^#\/lab\/([\w-]+)$/.exec(hash);
   if (lab) return { page: 'lab', id: lab[1]! };
   if (hash === '#/sandbox') return { page: 'sandbox' };
+  if (hash === '#/trainer') return { page: 'trainer' };
   if (hash === '#/leaderboard') return { page: 'leaderboard' };
   return { page: 'home' };
 }
 
 const NAV = [
-  { href: '#/', page: 'home', label: 'Labs', Icon: LayoutGrid },
+  { href: '#/', page: 'home', label: 'Home', Icon: House },
+  { href: '#/trainer', page: 'trainer', label: 'Trainer', Icon: Timer },
   { href: '#/sandbox', page: 'sandbox', label: 'Sandbox', Icon: Boxes },
   { href: '#/leaderboard', page: 'leaderboard', label: 'Leaderboard', Icon: Trophy },
 ] as const;
@@ -112,6 +120,7 @@ export function App() {
         {route.page === 'home' && <Dashboard me={me} />}
         {route.page === 'lab' && <LabPage key={route.id} labId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'sandbox' && <SandboxPage />}
+        {route.page === 'trainer' && <TrainerPage onProgress={refresh} />}
         {route.page === 'leaderboard' && <LeaderboardPage me={me} />}
       </main>
     </div>

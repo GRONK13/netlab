@@ -8,6 +8,7 @@ import { authRoutes, loadUser } from './auth.ts';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
 import { apiRoutes } from './routes.ts';
+import { trainerRoutes } from './trainer.ts';
 
 /** The deployed git commit, so `/api/health` shows which version is live. */
 const COMMIT = (() => {
@@ -52,6 +53,7 @@ export async function buildApp(db: Db, config: Config): Promise<FastifyInstance>
 
   authRoutes(app, db, config);
   apiRoutes(app, db);
+  trainerRoutes(app, db);
   app.get('/api/health', async () => ({ ok: true, commit: COMMIT }));
 
   if (existsSync(config.webDist)) {

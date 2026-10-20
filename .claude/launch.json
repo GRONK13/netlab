@@ -3,8 +3,11 @@
   "configurations": [
     {
       "name": "netlab-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "process.env.PORT = '3001'; require('node:child_process').spawn('npm', ['run', 'dev'], { stdio: 'inherit', shell: true }).on('exit', (c) => process.exit(c ?? 0));"
+      ],
       "port": 5173
     }
   ]
