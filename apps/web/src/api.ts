@@ -1,5 +1,5 @@
 import type { LevelInfo } from '@netlab/labs';
-import type { LogEntry } from '@netlab/sim';
+import type { LogEntry, NetworkSnapshot } from '@netlab/sim';
 
 export interface User {
   id: number;
@@ -69,4 +69,7 @@ export const api = {
   hint: (labId: string) => call<{ hintsUsed: number }>('POST', `/api/labs/${labId}/hint`),
   submit: (labId: string, log: LogEntry[]) => call<SubmitResult>('POST', `/api/labs/${labId}/submit`, { log }),
   leaderboard: () => call<Leaderboard>('GET', '/api/leaderboard'),
+  sandbox: () => call<{ snapshot: NetworkSnapshot | null }>('GET', '/api/sandbox'),
+  saveSandbox: (snapshot: NetworkSnapshot, keepalive = false) =>
+    call<void>('PUT', '/api/sandbox', { snapshot }, keepalive),
 };

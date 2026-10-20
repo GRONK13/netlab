@@ -1,5 +1,7 @@
+import { Boxes, SquareTerminal, Trophy } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api.ts';
+import { Logo } from '../components/Logo.tsx';
 
 export function AuthPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -26,19 +28,36 @@ export function AuthPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
 
   return (
     <div className="auth">
-      <div className="auth-hero">
+      <section className="auth-hero">
         <div className="brand big">
-          <img src="/favicon.svg" alt="" width={40} height={40} />
+          <Logo size={40} />
           NetLab
         </div>
-        <p className="lead">Practice real Cisco IOS commands in graded labs. Earn XP, level up, and get ready for the CCNA.</p>
+        <h1>Learn networking by configuring real IOS.</h1>
+        <p className="lead">Graded labs in your browser, Packet Tracer style. Earn XP, level up, and get CCNA ready.</p>
         <pre className="hero-cli" aria-hidden="true">
-          {'SW1# conf t\nSW1(config)# vlan 10\nSW1(config-vlan)# name SALES\nSW1(config-vlan)# end\n'}
-          <span className="ok">✓ Objective complete  +150 XP</span>
+          <span className="p">SW1#</span> conf t{'\n'}
+          <span className="p">SW1(config)#</span> vlan 10{'\n'}
+          <span className="p">SW1(config-vlan)#</span> name SALES{'\n'}
+          <span className="p">SW1(config-vlan)#</span> end{'\n'}
+          <span className="ok">✓ VLAN 10 exists and is named SALES   +150 XP</span>
         </pre>
-      </div>
+        <ul className="features">
+          <li>
+            <SquareTerminal size={18} /> Real IOS commands, <code>?</code> help and Tab completion
+          </li>
+          <li>
+            <Boxes size={18} /> A sandbox to build your own topologies
+          </li>
+          <li>
+            <Trophy size={18} /> XP, ranks and a class leaderboard
+          </li>
+        </ul>
+      </section>
+
       <form className="card auth-card" onSubmit={(e) => void submit(e)}>
-        <div className="tabs" role="tablist">
+        <h2>{mode === 'login' ? 'Sign in' : 'Create your account'}</h2>
+        <div className="seg" role="tablist">
           <button type="button" role="tab" aria-selected={mode === 'login'} onClick={() => setMode('login')}>
             Sign in
           </button>
@@ -54,7 +73,7 @@ export function AuthPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
         )}
         <label>
           School email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" placeholder="you@usc.edu.ph" />
         </label>
         <label>
           Password
@@ -66,10 +85,10 @@ export function AuthPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
             required
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           />
+          {mode === 'register' && <span className="muted small">At least 8 characters.</span>}
         </label>
-        {mode === 'register' && <p className="muted small">At least 8 characters.</p>}
         {error && <p className="error">{error}</p>}
-        <button className="btn primary" disabled={busy}>
+        <button className="btn primary block" disabled={busy}>
           {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
         </button>
       </form>

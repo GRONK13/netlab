@@ -2,6 +2,7 @@ import type { Network } from '@netlab/sim';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { useEffect, useRef } from 'react';
+import { decodeKeys, LineEditor, type Key } from '../console/lineEditor.ts';
 
 interface Props {
   net: Network;
@@ -10,21 +11,31 @@ interface Props {
   intro?: string;
   /** Runs a typed line (and records it). Returns the device's output. */
   onLine: (line: string) => string;
+  /** Bump to clear the screen. */
+  clearSignal?: number;
 }
 
 const THEME = {
-  background: '#0d1117',
-  foreground: '#d6dde6',
-  cursor: '#7ee2b8',
-  selectionBackground: '#2f4a63',
+  background: '#0b1020',
+  foreground: '#d7deea',
+  cursor: '#7dd3fc',
+  cursorAccent: '#0b1020',
+  selectionBackground: '#33507a',
+  green: '#4ade80',
+  brightBlack: '#64748b',
 };
 
-/** One console per device, like clicking a device's CLI tab in Packet Tracer. */
-export function DeviceTerminal({ net, deviceId, active, intro, onLine }: Props) {
+const MORE = ' --More-- ';
+
+/**
+ * A device console. Line editing follows Cisco IOS: Ctrl+A/E, Ctrl+B/F, Ctrl+W,
+ * Ctrl+U, Ctrl+K, Ctrl+P/N, Tab, `?`, plus arrows, Home/End and Ctrl+arrows.
+ * Long output pauses at --More-- (Space = next page, Enter = next line, q = stop).
+ */
+export function DeviceTerminal({ net, deviceId, active, intro, onLine, clearSignal }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  // Keep the latest callback without re-creating the terminal.
   const onLineRef = useRef(onLine);
   onLineRef.current = onLine;
 
@@ -32,9 +43,10 @@ export function DeviceTerminal({ net, deviceId, active, intro, onLine }: Props) 
     const term = new Terminal({
       cursorBlink: true,
       convertEol: true,
-      fontFamily: 'ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace',
+      fontFamily: '"Cascadia Mono", "JetBrains Mono", ui-monospace, Consolas, "Courier New", monospace',
       fontSize: 14,
-      scrollback: 2000,
+      lineHeight: 1.15,
+      scrollback: 3000,
       theme: THEME,
     });
     const fit = new FitAddon();
@@ -43,101 +55,172 @@ export function DeviceTerminal({ net, deviceId, active, intro, onLine }: Props) 
     termRef.current = term;
     fitRef.current = fit;
 
-    let line = '';
-    const history: string[] = [];
-    let hIdx = 0;
+    const ed = new LineEditor();
+    let paging: string[] | null = null;
     const prompt = () => net.prompt(deviceId);
     const secret = () => net.isSecretInput(deviceId);
-    const redraw = () => term.write(`\r\x1b[2K${prompt()}${secret() ? '' : line}`);
-    const print = (out: string) => {
-      if (out) term.write(out.endsWith('\n') ? out : `${out}\n`);
+
+    const render = () => {
+      const shown = secret() ? '' : ed.text;
+      const back = secret() ? 0 : ed.text.length - ed.cursor;
+      term.write(`\r\x1b[2K${prompt()}${shown}${back > 0 ? `\x1b[${back}D` : ''}`);
     };
 
-    if (intro) term.write(`${intro}\n`);
-    term.write(prompt());
+    const pageSize = () => {
+      const len = net.pageLength(deviceId);
+      return len === 0 ? Infinity : Math.max(4, Math.min(len - 1, term.rows - 1));
+    };
 
-    const enter = (text: string) => {
-      const wasSecret = secret();
-      term.write('\n');
-      if (!wasSecret && text.trim()) {
-        history.push(text);
-        if (history.length > 100) history.shift();
+    /** Writes output, pausing at --More-- when it's longer than a screen. Returns true if paused. */
+    const show = (out: string): boolean => {
+      if (!out) return false;
+      const lines = out.replace(/\n$/, '').split('\n');
+      const size = pageSize();
+      if (lines.length <= size) {
+        term.write(`${lines.join('\n')}\n`);
+        return false;
       }
-      hIdx = history.length;
-      print(onLineRef.current(text));
-      term.write(prompt());
+      term.write(`${lines.slice(0, size).join('\n')}\n${MORE}`);
+      paging = lines.slice(size);
+      return true;
     };
 
-    const handleChar = (ch: string) => {
-      switch (ch) {
-        case '\r':
-        case '\n': {
-          const text = line;
-          line = '';
-          enter(text);
-          return;
-        }
-        case '\x7f':
-        case '\b':
-          if (line.length) {
-            line = line.slice(0, -1);
-            if (!secret()) term.write('\b \b');
-          }
-          return;
-        case '\t': {
-          if (secret()) return;
-          const done = net.complete(deviceId, line);
-          if (done) {
-            line = done;
-            redraw();
-          }
-          return;
-        }
-        case '\x03': // Ctrl+C
-          line = '';
-          term.write('^C\n');
-          term.write(prompt());
-          return;
-        case '\x1a': // Ctrl+Z = end
-          if (prompt().includes('(config')) {
-            line = '';
-            term.write('^Z');
-            enter('end');
-          }
-          return;
-        case '?':
-          if (!secret()) {
-            term.write('?\n');
-            print(net.help(deviceId, line));
-            term.write(prompt() + line);
+    const continuePaging = (k: Key) => {
+      const rest = paging!;
+      term.write('\r\x1b[2K');
+      const n = k.type === 'char' && k.ch === ' ' ? pageSize() : k.type === 'enter' ? 1 : 0;
+      if (n === 0) {
+        paging = null;
+        render();
+        return;
+      }
+      term.write(`${rest.slice(0, n).join('\n')}\n`);
+      paging = rest.slice(n);
+      if (paging.length) term.write(MORE);
+      else {
+        paging = null;
+        render();
+      }
+    };
+
+    const enter = (line: string) => {
+      term.write('\n');
+      if (!show(onLineRef.current(line))) render();
+    };
+
+    const handle = (k: Key) => {
+      if (paging) return continuePaging(k);
+      const hidden = secret();
+      switch (k.type) {
+        case 'char':
+          if (k.ch === '?' && !hidden) {
+            const before = ed.text;
+            term.write(`${'\x1b[C'.repeat(ed.text.length - ed.cursor)}?\n`);
+            if (!show(net.help(deviceId, before))) render();
             return;
           }
+          ed.insert(k.ch);
           break;
+        case 'enter': {
+          ed.end();
+          if (!hidden) render();
+          enter(ed.take(!hidden));
+          return;
+        }
+        case 'backspace':
+          ed.backspace();
+          break;
+        case 'delete':
+          ed.deleteChar();
+          break;
+        case 'tab': {
+          if (hidden) return;
+          const done = net.complete(deviceId, ed.text);
+          if (done) ed.set(done);
+          break;
+        }
+        case 'left':
+          ed.left();
+          break;
+        case 'right':
+          ed.right();
+          break;
+        case 'home':
+          ed.home();
+          break;
+        case 'end':
+          ed.end();
+          break;
+        case 'wordLeft':
+          ed.wordLeft();
+          break;
+        case 'wordRight':
+          ed.wordRight();
+          break;
+        case 'deleteWordBack':
+          ed.deleteWordBack();
+          break;
+        case 'deleteWordForward':
+          ed.deleteWordForward();
+          break;
+        case 'killToStart':
+          ed.killToStart();
+          break;
+        case 'killToEnd':
+          ed.killToEnd();
+          break;
+        case 'up':
+          if (hidden) return;
+          ed.historyPrev();
+          break;
+        case 'down':
+          if (hidden) return;
+          ed.historyNext();
+          break;
+        case 'abort':
+          ed.take(false);
+          term.write('^C\n');
+          break;
+        case 'end-config':
+          if (!prompt().includes('(config')) return;
+          ed.take(false);
+          term.write('^Z');
+          enter('end');
+          return;
+        case 'redraw':
+          term.write('\n');
+          break;
+        case 'ignore':
+          return;
       }
-      if (ch >= ' ' && line.length < 300) {
-        line += ch;
-        if (!secret()) term.write(ch);
-      }
+      render();
     };
 
-    const sub = term.onData((data) => {
-      for (let i = 0; i < data.length; i++) {
-        const ch = data[i]!;
-        if (ch === '\x1b') {
-          const seq = data.slice(i, i + 3);
-          i += 2;
-          if (secret() || !history.length) continue;
-          if (seq === '\x1b[A') hIdx = Math.max(0, hIdx - 1);
-          else if (seq === '\x1b[B') hIdx = Math.min(history.length, hIdx + 1);
-          else continue;
-          line = history[hIdx] ?? '';
-          redraw();
-          continue;
-        }
-        // A pasted "\r\n" is one Enter.
-        if (ch === '\n' && data[i - 1] === '\r') continue;
-        handleChar(ch);
+    // Copy with Ctrl+C when text is selected (or Ctrl+Shift+C); paste with the browser.
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown') return true;
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      if (mod && key === 'c' && (e.shiftKey || term.hasSelection())) {
+        if (term.hasSelection()) void navigator.clipboard?.writeText(term.getSelection());
+        term.clearSelection();
+        e.preventDefault();
+        return false;
       }
+      if (mod && key === 'v') return false;
+      if (e.ctrlKey && key === 'backspace') {
+        e.preventDefault();
+        handle({ type: 'deleteWordBack' });
+        return false;
+      }
+      return true;
+    });
+
+    if (intro) term.write(`${intro}\n`);
+    render();
+
+    const sub = term.onData((data) => {
+      for (const k of decodeKeys(data)) handle(k);
     });
 
     const ro = new ResizeObserver(() => {
@@ -151,7 +234,7 @@ export function DeviceTerminal({ net, deviceId, active, intro, onLine }: Props) 
       term.dispose();
       termRef.current = null;
     };
-    // The terminal is created once per device; the parent remounts it on lab reset.
+    // Created once per device; the parent remounts it (via key) on lab reset.
   }, []);
 
   useEffect(() => {
@@ -160,6 +243,10 @@ export function DeviceTerminal({ net, deviceId, active, intro, onLine }: Props) 
       termRef.current.focus();
     }
   }, [active]);
+
+  useEffect(() => {
+    if (clearSignal && active) termRef.current?.clear();
+  }, [clearSignal, active]);
 
   return <div ref={host} className="console-host" hidden={!active} aria-label={`${deviceId} console`} />;
 }

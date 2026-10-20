@@ -1,12 +1,30 @@
-import { getLab, levelFor, xpAward } from '@netlab/labs';
+import { getLab, levelFor, xpAward, type Lab } from '@netlab/labs';
 import { evaluateAll, Network, type LogEntry } from '@netlab/sim';
+import { ArrowLeft, Check, CircleCheck, Lightbulb, ListChecks, RotateCcw, Send, Sparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, type Me, type SubmitResult } from '../api.ts';
 import { Briefing, Inline } from '../components/Briefing.tsx';
-import { DeviceTerminal } from '../components/DeviceTerminal.tsx';
-import { Topology } from '../components/Topology.tsx';
+import { Stage } from '../components/Stage.tsx';
+import type { Positions } from '../components/TopologyCanvas.tsx';
 
 const MAX_LOG = 5000;
+
+function specPositions(lab: Lab): Positions {
+  return Object.fromEntries(lab.topology.devices.map((d) => [d.id, { x: d.x, y: d.y }]));
+}
+
+function loadPositions(lab: Lab): Positions {
+  const base = specPositions(lab);
+  try {
+    const saved = JSON.parse(localStorage.getItem(`netlab:layout:${lab.id}`) ?? '{}') as Positions;
+    for (const id of Object.keys(base)) if (saved[id]) base[id] = saved[id];
+  } catch {
+    // Layout is cosmetic; fall back to the lab's default.
+  }
+  return base;
+}
+
+type Tab = 'task' | 'objectives' | 'hints';
 
 export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onProgress: () => Promise<void> }) {
   const lab = getLab(labId);
@@ -18,7 +36,8 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
   const [ready, setReady] = useState(false);
   const [epoch, setEpoch] = useState(0);
   const [, setTick] = useState(0);
-  const [active, setActive] = useState(lab?.topology.devices[0]?.id ?? '');
+  const [positions, setPositions] = useState<Positions>(() => (lab ? loadPositions(lab) : {}));
+  const [tab, setTab] = useState<Tab>('task');
   const [hintsUsed, setHintsUsed] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [restored, setRestored] = useState(0);
@@ -52,12 +71,28 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
       (e) => setError(e instanceof ApiError ? e.message : "Couldn't load your progress."),
     );
     const onHide = () => flush(true);
+    // Browsers reserve Ctrl+W for closing the tab; ask before leaving mid-lab.
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (logRef.current.length > 0) e.preventDefault();
+    };
     addEventListener('pagehide', onHide);
+    addEventListener('beforeunload', onBeforeUnload);
     return () => {
       removeEventListener('pagehide', onHide);
+      removeEventListener('beforeunload', onBeforeUnload);
       flush(true);
     };
   }, [lab, flush]);
+
+  // Remember the student's layout for this lab (cosmetic; never graded).
+  useEffect(() => {
+    if (!lab) return;
+    try {
+      localStorage.setItem(`netlab:layout:${lab.id}`, JSON.stringify(positions));
+    } catch {
+      // Private mode: the layout just won't be remembered.
+    }
+  }, [lab, positions]);
 
   if (!lab) {
     return (
@@ -69,12 +104,12 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
   }
 
   const net = netRef.current;
-  const checks = lab.objectives.map((o) => o.check);
-  const live = net ? evaluateAll(net, checks) : [];
+  const live = net ? evaluateAll(net, lab.objectives.map((o) => o.check)) : [];
   const doneCount = live.filter(Boolean).length;
   const alreadyDone = completed || me.completions.some((c) => c.labId === lab.id);
+  const pct = lab.objectives.length ? (doneCount / lab.objectives.length) * 100 : 0;
 
-  const onLine = (device: string) => (line: string) => {
+  const onLine = (device: string, line: string) => {
     if (!netRef.current) return '';
     if (logRef.current.length >= MAX_LOG) return '% Command limit reached for this attempt. Reset the lab to start over.';
     const out = netRef.current.exec(device, line);
@@ -126,128 +161,150 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
   const before = levelFor(Math.max(0, (result?.level.xp ?? 0) - (result?.xpAwarded ?? 0)));
 
   return (
-    <div className="page lab-page">
-      <div className="lab-head">
-        <a href="#/" className="muted">
-          ← All labs
+    <div className="ws">
+      <header className="ws-header">
+        <a href="#/" className="icon-btn" aria-label="All labs" title="All labs">
+          <ArrowLeft size={18} />
         </a>
-        <h1>{lab.title}</h1>
-        <div className="tags">
-          <span className={`tag ${lab.difficulty.toLowerCase()}`}>{lab.difficulty}</span>
-          <span className="tag">CCNA: {lab.ccnaDomain}</span>
-          <span className={alreadyDone ? 'ok' : 'xp'}>
-            {alreadyDone ? '✓ Completed' : `${xpAward(lab.xp, hintsUsed)} XP available`}
+        <div className="ws-title">
+          <h1>{lab.title}</h1>
+          <div className="chips">
+            <span className={`chip ${lab.difficulty.toLowerCase()}`}>{lab.difficulty}</span>
+            <span className="chip">{lab.ccnaDomain}</span>
+            {alreadyDone ? (
+              <span className="chip success">
+                <Check size={13} /> Completed
+              </span>
+            ) : (
+              <span className="chip xp">
+                <Sparkles size={13} /> {xpAward(lab.xp, hintsUsed)} XP
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="ws-progress" title={`${doneCount} of ${lab.objectives.length} objectives`}>
+          <div className="bar">
+            <span style={{ width: `${pct}%` }} />
+          </div>
+          <span className="small muted">
+            {doneCount}/{lab.objectives.length}
           </span>
         </div>
-      </div>
-      {error && <p className="error">{error}</p>}
-      {!ready && !error && <p className="muted">Loading lab…</p>}
-      {ready && net && (
-        <div className="lab-layout">
-          <aside className="lab-side">
-            <section className="card">
-              <h2>Your task</h2>
-              <Briefing text={lab.briefing} />
-            </section>
-            <section className="card">
-              <h2>
-                Objectives{' '}
-                <span className="muted small">
-                  {doneCount}/{lab.objectives.length}
-                </span>
-              </h2>
-              <ul className="objectives">
-                {lab.objectives.map((o, i) => (
-                  <li key={i} className={live[i] ? 'met' : undefined}>
-                    <span className="check" aria-hidden="true">
-                      {live[i] ? '✓' : ''}
-                    </span>
-                    <span>{o.label}</span>
-                    <span className="sr-only">{live[i] ? '(done)' : '(not done)'}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="actions">
-                <button className="btn primary" onClick={() => void submit()} disabled={busy}>
-                  {busy ? 'Checking…' : 'Submit lab'}
-                </button>
-                <button className="btn ghost" onClick={reset}>
-                  Reset lab
-                </button>
-              </div>
-              {result && (
-                <div className={`result ${result.passed ? 'pass' : 'fail'}`} role="status">
+        <button className="btn ghost" onClick={reset} disabled={!ready}>
+          <RotateCcw size={16} /> <span className="hide-sm">Reset</span>
+        </button>
+        <button className="btn primary" onClick={() => void submit()} disabled={busy || !ready}>
+          <Send size={16} /> {busy ? 'Checking…' : 'Submit'}
+        </button>
+      </header>
+
+      <div className="ws-body">
+        <aside className="ws-panel">
+          <div className="seg" role="tablist" aria-label="Lab panel">
+            <button role="tab" aria-selected={tab === 'task'} onClick={() => setTab('task')}>
+              Task
+            </button>
+            <button role="tab" aria-selected={tab === 'objectives'} onClick={() => setTab('objectives')}>
+              Objectives <span className="count">{doneCount}/{lab.objectives.length}</span>
+            </button>
+            <button role="tab" aria-selected={tab === 'hints'} onClick={() => setTab('hints')}>
+              Hints {hintsUsed > 0 && <span className="count">{hintsUsed}</span>}
+            </button>
+          </div>
+
+          <div className="panel-body">
+            {error && <p className="error">{error}</p>}
+            {result && (
+              <div className={`result ${result.passed ? 'pass' : 'fail'}`} role="status">
+                {result.passed ? <CircleCheck size={20} /> : <ListChecks size={20} />}
+                <div>
                   {result.passed && result.xpAwarded > 0 && (
                     <>
                       <strong>Lab complete! +{result.xpAwarded} XP</strong>
                       {result.level.level > before.level && (
                         <div>
-                          Level up! You're now level {result.level.level}: {result.level.rank}.
+                          Level up: you're now level {result.level.level}, {result.level.rank}.
                         </div>
                       )}
                     </>
                   )}
-                  {result.passed && result.xpAwarded === 0 && <strong>All objectives met. You already earned XP for this lab.</strong>}
+                  {result.passed && result.xpAwarded === 0 && <strong>All objectives met. You already earned XP here.</strong>}
                   {!result.passed && (
                     <strong>
                       {result.results.filter(Boolean).length} of {result.results.length} objectives met. Keep going!
                     </strong>
                   )}
                 </div>
-              )}
-            </section>
-            <section className="card">
-              <h2>Hints</h2>
-              {hintsUsed === 0 && <p className="muted small">Stuck? Each hint costs 10% of this lab's XP.</p>}
-              <ol className="hints">
-                {lab.hints.slice(0, hintsUsed).map((h, i) => (
-                  <li key={i}>
-                    <Inline text={h} />
+                <button className="icon-btn" onClick={() => setResult(null)} aria-label="Dismiss">
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {tab === 'task' && (
+              <>
+                <Briefing text={lab.briefing} />
+                <div className="tip-box">
+                  <strong>How to work</strong>
+                  <ul>
+                    <li>Double-click a switch or router to open its console below.</li>
+                    <li>Double-click a PC to open its desktop.</li>
+                    <li>Click any device to inspect its ports. Drag to rearrange.</li>
+                  </ul>
+                </div>
+              </>
+            )}
+
+            {tab === 'objectives' && (
+              <ul className="objectives">
+                {lab.objectives.map((o, i) => (
+                  <li key={i} className={live[i] ? 'met' : undefined}>
+                    <span className="check" aria-hidden="true">
+                      {live[i] && <Check size={12} strokeWidth={3} />}
+                    </span>
+                    <span>{o.label}</span>
+                    <span className="sr-only">{live[i] ? '(done)' : '(not done)'}</span>
                   </li>
                 ))}
-              </ol>
-              {hintsUsed < lab.hints.length && (
-                <button className="btn ghost small" onClick={() => void hint()}>
-                  Show hint {hintsUsed + 1} {alreadyDone ? '' : '(−10% XP)'}
-                </button>
-              )}
-            </section>
-          </aside>
-          <section className="lab-main">
-            <div className="card topo-card">
-              <Topology net={net} active={active} onSelect={setActive} />
-            </div>
-            <div className="card console-card">
-              <div className="device-tabs" role="tablist" aria-label="Device consoles">
-                {lab.topology.devices.map((d) => (
-                  <button
-                    key={d.id}
-                    role="tab"
-                    aria-selected={active === d.id}
-                    onClick={() => setActive(d.id)}
-                  >
-                    {net.device(d.id).running.hostname}
+              </ul>
+            )}
+
+            {tab === 'hints' && (
+              <>
+                {hintsUsed === 0 && (
+                  <p className="muted">Stuck? Hints reveal one step at a time. Each costs 10% of this lab's XP.</p>
+                )}
+                <ol className="hints">
+                  {lab.hints.slice(0, hintsUsed).map((h, i) => (
+                    <li key={i}>
+                      <Inline text={h} />
+                    </li>
+                  ))}
+                </ol>
+                {hintsUsed < lab.hints.length && (
+                  <button className="btn" onClick={() => void hint()}>
+                    <Lightbulb size={16} /> Show hint {hintsUsed + 1} {alreadyDone ? '' : '(−10% XP)'}
                   </button>
-                ))}
-                <span className="muted small tip">? for help · Tab completes · ↑ history</span>
-              </div>
-              {lab.topology.devices.map((d) => (
-                <DeviceTerminal
-                  key={`${epoch}-${d.id}`}
-                  net={net}
-                  deviceId={d.id}
-                  active={active === d.id}
-                  intro={
-                    (d.kind === 'pc' ? 'NetLab PC Command Line 1.0\nType help for commands.\n' : '') +
-                    (restored ? `% Restored your earlier session (${restored} commands).\n` : '')
-                  }
-                  onLine={onLine(d.id)}
-                />
-              ))}
-            </div>
-          </section>
-        </div>
-      )}
+                )}
+              </>
+            )}
+          </div>
+        </aside>
+
+        {ready && net ? (
+          <Stage
+            net={net}
+            onLine={onLine}
+            epoch={epoch}
+            restored={restored}
+            positions={positions}
+            onMove={(id, x, y) => setPositions((p) => ({ ...p, [id]: { x, y } }))}
+            onResetLayout={() => setPositions(specPositions(lab))}
+          />
+        ) : (
+          <div className="stage center muted">{error ? '' : 'Loading lab…'}</div>
+        )}
+      </div>
     </div>
   );
 }
