@@ -24,3 +24,6 @@ All project documentation lives in the Obsidian vault, folder `NetLab Project/`,
 3. Record decisions in `07 NetLab Decisions`.
 4. Update `03 Features`, `05 Roadmap`, and the overview's Quick facts (version, test count, size).
 5. Add problems to `09 Problems and Fixes`, and résumé-worthy results to `06 Portfolio and Resume`.
+
+## Skills
+Before starting a roadmap item, check `10 Skills Playbook` in the same folder for the skills to load. Always run `/code-review` before asking to push, and `/security-review` when a change touches sign-in, API routes or the database.
