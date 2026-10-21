@@ -2,10 +2,12 @@
 // import this; a test fails if anything under apps/web does, so keys never reach a browser.
 
 import { ipAddressingAnswers } from './ip-addressing.ts';
+import { switchingVlansAnswers } from './switching-vlans.ts';
 import type { AnswerKeys } from './grade.ts';
 
 export const ANSWERS: Record<string, AnswerKeys> = {
   'ip-addressing': ipAddressingAnswers,
+  'switching-vlans': switchingVlansAnswers,
 };
 
 export { grade, answerText, type AnswerKey, type AnswerKeys } from './grade.ts';

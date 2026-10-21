@@ -1,8 +1,9 @@
 import { ipAddressing } from './content/ip-addressing.ts';
+import { switchingVlans } from './content/switching-vlans.ts';
 import type { Module } from './types.ts';
 
 /** Modules in the order students should take them. */
-export const MODULES: Module[] = [ipAddressing];
+export const MODULES: Module[] = [ipAddressing, switchingVlans];
 
 export function getModule(id: string): Module | undefined {
   return MODULES.find((m) => m.id === id);

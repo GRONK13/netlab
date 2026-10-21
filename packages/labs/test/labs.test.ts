@@ -69,6 +69,18 @@ describe('guided practice', () => {
     net.exec('PC4', 'ipconfig 192.168.1.200 255.255.255.0');
     expect(net.ping('PC1', '192.168.1.200').success).toBe(true);
   });
+
+  it('one switch, two networks: moving one port cuts it off, moving its neighbour reconnects them', () => {
+    const lab = getLab('vlan-practice')!;
+    const log = SOLUTIONS['vlan-practice']!;
+    const firstPort = Network.replay(lab.topology, log.slice(0, log.findIndex((e) => e.line === 'interface fa0/2')));
+    expect(firstPort.ping('PC1', '192.168.1.12').success).toBe(false);
+    expect(firstPort.ping('PC1', '192.168.1.13').success).toBe(false);
+    expect(firstPort.ping('PC2', '192.168.1.13').success).toBe(true);
+    const done = Network.replay(lab.topology, log);
+    expect(done.ping('PC1', '192.168.1.12').success).toBe(true);
+    expect(done.ping('PC3', '192.168.1.11').success).toBe(false);
+  });
 });
 
 describe('address the branch office', () => {

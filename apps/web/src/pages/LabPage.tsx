@@ -114,8 +114,11 @@ export function LabPage({ labId, me, onProgress }: { labId: string; me: Me; onPr
 
   const net = netRef.current;
   const live = net ? evaluateAll(net, lab.objectives.map((o) => o.check)) : [];
-  const doneCount = live.filter(Boolean).length;
   const firstOpen = live.findIndex((met) => !met);
+  const inOrder = firstOpen === -1 ? lab.objectives.length : firstOpen;
+  // Guided labs count steps finished in order, so a later step that happens to be true early
+  // (say, a ping that works before any VLANs exist) doesn't inflate the progress.
+  const doneCount = !net ? 0 : lab.guided ? inOrder : live.filter(Boolean).length;
   // Nothing to show until the network has loaded and been checked.
   const shownSteps = !net ? 0 : firstOpen === -1 ? lab.objectives.length : firstOpen + 1;
   const alreadyDone = completed || me.completions.some((c) => c.labId === lab.id);

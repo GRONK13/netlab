@@ -65,25 +65,31 @@ Decided with the project owner on 2026-10-20: quizzes allow unlimited retries wi
 
 ## Implementation TODO
 
-### Push 1: Subnetting trainer
+### Push 1: Subnetting trainer (shipped 2026-10-20, `1e83078`)
 
-- [ ] `packages/sim/src/ipv4.ts` subnet math + tests
-- [ ] `packages/modules`: seeded PRNG, trainer generator and solver + tests
-- [ ] Migration 3: `module_steps`, `quiz_attempts`, `trainer_rounds`, view `xp_events`; XP totals and leaderboard read the view
-- [ ] Trainer endpoints + API tests
-- [ ] Trainer page, nav item, browser test
+- [x] `packages/sim/src/ipv4.ts` subnet math + tests
+- [x] `packages/modules`: seeded PRNG, trainer generator and solver + tests
+- [x] Migration 3: `module_steps`, `trainer_rounds`, view `xp_events`; XP totals and leaderboard read the view (`quiz_attempts` came in migration 4, with the quiz)
+- [x] Trainer endpoints + API tests
+- [x] Trainer page, nav item, browser test
 
-### Push 2: Module framework, lesson, quiz
+### Push 2: Module framework, lesson, quiz (shipped 2026-10-20, `ca257c5`, `8528723`)
 
-- [ ] Module types, Module 1 lesson and quiz pool, server-only answer keys + guard test
-- [ ] Markdown renderer + `SubnetExplorer`
-- [ ] Module, lesson and quiz pages; quiz endpoints + API tests; dashboard Modules section; browser test
+- [x] Module types, Module 1 lesson and quiz pool, server-only answer keys + guard test
+- [x] Markdown renderer + `SubnetExplorer`
+- [x] Module, lesson and quiz pages; quiz endpoints + API tests; dashboard Modules section; browser test
 
-### Push 3: Guided practice and challenge
+### Push 3: Guided practice and challenge (shipped 2026-10-20, `60da2e8`, `8de27e6`)
 
-- [ ] `address` and `gateway` checks
-- [ ] Guided mode in the lab page; `ip-practice` and `address-the-office` labs with reference solutions
-- [ ] "Up next" across modules and labs
+- [x] `address` and `gateway` checks (plus `all`, and `ping` to a PC by device id)
+- [x] Guided mode in the lab page; `ip-practice` and `address-the-office` labs with reference solutions
+- [x] "Up next" across modules and labs
+
+### Module 2: Switching and VLANs (in progress)
+
+- [ ] Lesson (switch forwarding, MAC table, broadcast domains, VLANs, access ports, trunks and 802.1Q, verification) and quiz pool with answer keys
+- [ ] Guided practice on one switch: create VLANs, assign access ports, see which PCs can still talk
+- [ ] Wire Module 2 with "Separate the Departments" as its challenge
 
 ## Out of scope
 
