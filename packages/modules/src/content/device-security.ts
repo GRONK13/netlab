@@ -321,9 +321,9 @@ Next: the **guided practice** locks down a switch step by step. Then the checkpo
         id: 'cmd-secret',
         kind: 'input',
         prompt:
-          'Complete the command that sets a hashed privileged EXEC password of Class1: enable ____',
+          'Fill in the missing word so the privileged EXEC password is stored as a hash: enable ____ Class1',
         answerType: 'text',
-        placeholder: 'the rest of the command',
+        placeholder: 'one word',
       },
     ],
   },

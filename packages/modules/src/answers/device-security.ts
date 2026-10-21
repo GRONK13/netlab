@@ -90,8 +90,8 @@ export const deviceSecurityAnswers: AnswerKeys = {
     explanation: 'The full command is `service password-encryption`.',
   },
   'cmd-secret': {
-    answer: 'secret Class1',
-    alsoAccept: ['enable secret Class1'],
-    explanation: 'The full command is `enable secret Class1`.',
+    answer: 'secret',
+    explanation:
+      'The full command is `enable secret Class1`. `enable password` would store it in plain text.',
   },
 };

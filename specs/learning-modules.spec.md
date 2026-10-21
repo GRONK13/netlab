@@ -97,6 +97,12 @@ Decided with the project owner on 2026-10-20: quizzes allow unlimited retries wi
 - [x] Guided practice: route two VLANs with one router port each
 - [x] Wire Module 3 with "Router on a Stick" as its challenge
 
+### Module 4: Device Security (shipped 2026-10-21)
+
+- [x] Lesson (access paths, enable secret vs password, console and VTY lines, encryption, SSH, banners and unused ports, saving) and quiz pool with answer keys
+- [x] Guided practice: lock down a new switch step by step (new `shutdown` check)
+- [x] Wire Module 4 with "Switch Basics" as its challenge
+
 ## Out of scope
 
 Weekly XP targets, streaks, badges, mastery per CCNA domain, Modules 2–4, instructor views.
