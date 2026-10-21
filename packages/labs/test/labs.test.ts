@@ -82,6 +82,17 @@ describe('guided practice', () => {
     expect(done.ping('PC3', '192.168.1.11').success).toBe(false);
   });
 
+  it('lock it down: unused ports are shut, and changing anything after saving unsaves it', () => {
+    const lab = getLab('security-practice')!;
+    const log = SOLUTIONS['security-practice']!;
+    const done = Network.replay(lab.topology, log);
+    const check = (c: Check) => evaluateAll(done, [c])[0];
+    expect(check({ type: 'shutdown', device: 'SW1', port: 'Fa0/24' })).toBe(true);
+    expect(check({ type: 'shutdown', device: 'SW1', port: 'Fa0/1' })).toBe(false);
+    const late = Network.replay(lab.topology, [...log, { device: 'SW1', line: 'configure terminal' }, { device: 'SW1', line: 'interface fa0/24' }, { device: 'SW1', line: 'no shutdown' }]);
+    expect(evaluateAll(late, lab.objectives.map((o) => o.check)).every(Boolean)).toBe(false);
+  });
+
   it('two ports, two VLANs: one router interface reaches the gateway, both reach across', () => {
     const lab = getLab('routing-practice')!;
     const log = SOLUTIONS['routing-practice']!;

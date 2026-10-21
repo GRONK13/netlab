@@ -80,6 +80,21 @@ export const SOLUTIONS: Record<string, LogEntry[]> = {
     'no shutdown',
     'end',
   ]),
+  'security-practice': on('SW1', [
+    'enable',
+    'configure terminal',
+    'enable secret Class1',
+    'line console 0',
+    'password Cisco1',
+    'login',
+    'exit',
+    'service password-encryption',
+    'interface range fa0/20 - 24',
+    'shutdown',
+    'end',
+    'copy running-config startup-config',
+    '',
+  ]),
   'address-the-office': [
     ...on('R1', [
       'enable',

@@ -83,7 +83,9 @@ export function DeviceTerminal({ net, deviceId, active, intro, onLine, clearSign
     const show = (out: string): boolean => {
       if (!out) return false;
       const lines = out.replace(/\n$/, '').split('\n');
-      const size = pageSize();
+      // Like IOS, only command output pages. Banners shown while the line waits for
+      // RETURN (after logout or reload) are written in full.
+      const size = prompt() === '' ? Infinity : pageSize();
       if (lines.length <= size) {
         term.write(`${lines.join('\n')}\n`);
         return false;

@@ -18,6 +18,8 @@ export type Check =
   | { type: 'trunk'; device: string; port: string }
   | { type: 'trunkAllows'; device: string; port: string; vlans: number[] }
   | { type: 'interfaceUp'; device: string; port: string }
+  /** The port is administratively shut down (`shutdown`), whether or not anything is plugged in. */
+  | { type: 'shutdown'; device: string; port: string }
   | { type: 'subinterface'; device: string; port: string; vlan: number; ip: string; mask: string }
   /** `to` is an IP address, or a PC's device id to ping whatever address it has. */
   | { type: 'ping'; from: string; to: string; expect: boolean }
@@ -96,6 +98,8 @@ export function evaluate(net: Network, c: Check): boolean {
       return net.ifaceUp(dev.id, canon(c.port));
     case 'gateway':
       return cfg.pc?.gateway === c.ip;
+    case 'shutdown':
+      return dev.iface(canon(c.port))?.shutdown === true;
     case 'subinterface': {
       const i = dev.iface(canon(c.port));
       return (
