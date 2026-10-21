@@ -2,7 +2,7 @@
 // these fail, CI doesn't promote the commit, so it never reaches netlab.dcism.org.
 
 import { getLab } from '@netlab/labs';
-import { solve, type Problem, type Question } from '@netlab/modules';
+import { MODULES, solve, type Problem, type Question } from '@netlab/modules';
 import { ANSWERS, answerText } from '@netlab/modules/answers';
 import { expect, test, type Page } from '@playwright/test';
 import { SOLUTIONS } from '../packages/labs/test/solutions.ts';
@@ -60,7 +60,10 @@ test('a student completes Switch Basics, earns XP and reaches the leaderboard', 
 
   await page.getByRole('button', { name: 'Submit' }).click();
   await expect(dialog.getByRole('heading', { name: `Lab complete! +${lab.xp} XP` })).toBeVisible();
-  await expect(dialog.getByRole('link', { name: /Next lab/ })).toBeVisible();
+  // A module's challenge leads back to its module; any other lab leads to the next lab.
+  const mod = MODULES.find((m) => m.challenge === lab.id);
+  const next = mod ? `Back to Module ${mod.number}` : /Next lab/;
+  await expect(dialog.getByRole('link', { name: next })).toBeVisible();
   await dialog.getByRole('button', { name: 'Stay in the lab' }).click();
 
   await nav(page, 'Leaderboard').click();
