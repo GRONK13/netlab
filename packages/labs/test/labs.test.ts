@@ -81,6 +81,17 @@ describe('guided practice', () => {
     expect(done.ping('PC1', '192.168.1.12').success).toBe(true);
     expect(done.ping('PC3', '192.168.1.11').success).toBe(false);
   });
+
+  it('two ports, two VLANs: one router interface reaches the gateway, both reach across', () => {
+    const lab = getLab('routing-practice')!;
+    const log = SOLUTIONS['routing-practice']!;
+    const half = Network.replay(lab.topology, log.slice(0, log.findIndex((e) => e.line === 'interface g0/1')));
+    expect(half.ping('PC1', '192.168.10.1').success).toBe(true);
+    expect(half.ping('PC1', '192.168.20.10').success).toBe(false);
+    const done = Network.replay(lab.topology, log);
+    expect(done.ping('PC1', '192.168.20.10').success).toBe(true);
+    expect(done.ping('PC2', '192.168.10.10').success).toBe(true);
+  });
 });
 
 describe('address the branch office', () => {

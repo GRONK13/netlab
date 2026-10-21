@@ -69,6 +69,17 @@ export const SOLUTIONS: Record<string, LogEntry[]> = {
     'switchport access vlan 20',
     'end',
   ]),
+  'routing-practice': on('R1', [
+    'enable',
+    'configure terminal',
+    'interface g0/0',
+    'ip address 192.168.10.1 255.255.255.0',
+    'no shutdown',
+    'interface g0/1',
+    'ip address 192.168.20.1 255.255.255.0',
+    'no shutdown',
+    'end',
+  ]),
   'address-the-office': [
     ...on('R1', [
       'enable',

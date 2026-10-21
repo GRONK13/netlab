@@ -1,6 +1,7 @@
 import { addressTheOffice } from './labs/address-the-office.ts';
 import { ipPractice } from './labs/ip-practice.ts';
 import { routerOnAStick } from './labs/router-on-a-stick.ts';
+import { routingPractice } from './labs/routing-practice.ts';
 import { switchBasics } from './labs/switch-basics.ts';
 import { vlanPractice } from './labs/vlan-practice.ts';
 import { vlans } from './labs/vlans.ts';
@@ -10,7 +11,7 @@ import type { Lab } from './types.ts';
 export const LABS: Lab[] = [switchBasics, addressTheOffice, vlans, routerOnAStick];
 
 /** Guided practice labs. Reached from their modules; not listed with the graded labs. */
-export const PRACTICES: Lab[] = [ipPractice, vlanPractice];
+export const PRACTICES: Lab[] = [ipPractice, vlanPractice, routingPractice];
 
 export function getLab(id: string): Lab | undefined {
   return LABS.find((l) => l.id === id) ?? PRACTICES.find((l) => l.id === id);
