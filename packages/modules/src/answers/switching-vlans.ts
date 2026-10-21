@@ -87,6 +87,7 @@ export const switchingVlansAnswers: AnswerKeys = {
   },
   'cmd-access-vlan': {
     answer: 'vlan 30',
+    alsoAccept: ['switchport access vlan 30'],
     explanation: 'The full command is `switchport access vlan 30`.',
   },
 };

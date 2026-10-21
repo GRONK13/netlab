@@ -4,9 +4,13 @@ import { sameIp, sameNumber } from '../normalize.ts';
 export interface AnswerKey {
   /** Choice index for choice questions; the canonical answer for input questions. */
   answer: number | string;
+  /** Text questions: other wordings that also count as right. */
+  alsoAccept?: string[];
   /** Shown only after the student passes. */
   explanation: string;
 }
+
+const squash = (s: string) => s.replace(/\s/g, '').toLowerCase();
 
 export type AnswerKeys = Record<string, AnswerKey>;
 
@@ -19,7 +23,7 @@ export function grade(q: Question, key: AnswerKey, given: string): boolean {
     case 'number':
       return sameNumber(given, expected);
     case 'text':
-      return given.replace(/\s/g, '').toLowerCase() === expected.replace(/\s/g, '').toLowerCase();
+      return [expected, ...(key.alsoAccept ?? [])].some((a) => squash(a) === squash(given));
   }
 }
 

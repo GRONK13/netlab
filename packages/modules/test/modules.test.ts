@@ -82,3 +82,14 @@ describe('answer key isolation', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('text answers', () => {
+  it('accept the listed alternatives, such as a fill-in typed as the full command', () => {
+    const m = getModule('switching-vlans')!;
+    const q = m.quiz.questions.find((x) => x.id === 'cmd-access-vlan')!;
+    const key = ANSWERS['switching-vlans']!['cmd-access-vlan']!;
+    expect(grade(q, key, 'vlan 30')).toBe(true);
+    expect(grade(q, key, 'Switchport Access VLAN 30')).toBe(true);
+    expect(grade(q, key, 'vlan 20')).toBe(false);
+  });
+});

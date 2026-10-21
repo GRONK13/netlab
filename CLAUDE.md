@@ -34,7 +34,7 @@ Detail and dates are in Obsidian `05 Roadmap`; this is the short version. Tick i
 - [x] Phase 0 safety net: nightly verified backups, browser tests in CI (2026-10-20)
 - [x] Module 1, IP Addressing and Subnetting: lesson, guided practice, trainer, quiz, challenge (2026-10-20)
 - [x] Clear Submit result dialog in labs (2026-10-21)
-- [ ] Module 2, Switching and VLANs (in progress)
+- [x] Module 2, Switching and VLANs: lesson, guided practice, quiz, challenge (2026-10-21)
 - [ ] Module 3, Inter-VLAN routing
 - [ ] Module 4, Device security
 - [ ] Goals, streaks, badges, mastery per CCNA domain

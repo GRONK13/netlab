@@ -85,11 +85,11 @@ Decided with the project owner on 2026-10-20: quizzes allow unlimited retries wi
 - [x] Guided mode in the lab page; `ip-practice` and `address-the-office` labs with reference solutions
 - [x] "Up next" across modules and labs
 
-### Module 2: Switching and VLANs (in progress)
+### Module 2: Switching and VLANs (shipped 2026-10-21)
 
-- [ ] Lesson (switch forwarding, MAC table, broadcast domains, VLANs, access ports, trunks and 802.1Q, verification) and quiz pool with answer keys
-- [ ] Guided practice on one switch: create VLANs, assign access ports, see which PCs can still talk
-- [ ] Wire Module 2 with "Separate the Departments" as its challenge
+- [x] Lesson (switch forwarding, MAC table, broadcast domains, VLANs, access ports, trunks and 802.1Q, verification) and quiz pool with answer keys
+- [x] Guided practice on one switch: create VLANs, assign access ports, see which PCs can still talk
+- [x] Wire Module 2 with "Separate the Departments" as its challenge
 
 ## Out of scope
 
