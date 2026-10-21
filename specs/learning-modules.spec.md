@@ -91,6 +91,12 @@ Decided with the project owner on 2026-10-20: quizzes allow unlimited retries wi
 - [x] Guided practice on one switch: create VLANs, assign access ports, see which PCs can still talk
 - [x] Wire Module 2 with "Separate the Departments" as its challenge
 
+### Module 3: Inter-VLAN Routing (shipped 2026-10-21)
+
+- [x] Lesson (why VLANs need a router, one port per VLAN, router on a stick, the switch side, following a packet, troubleshooting) and quiz pool with answer keys
+- [x] Guided practice: route two VLANs with one router port each
+- [x] Wire Module 3 with "Router on a Stick" as its challenge
+
 ## Out of scope
 
 Weekly XP targets, streaks, badges, mastery per CCNA domain, Modules 2–4, instructor views.

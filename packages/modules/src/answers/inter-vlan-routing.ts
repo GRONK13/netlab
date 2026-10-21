@@ -64,7 +64,7 @@ export const interVlanRoutingAnswers: AnswerKeys = {
   },
   'subif-name': {
     answer: 'g0/0.30',
-    alsoAccept: ['gi0/0.30', 'gigabitethernet0/0.30'],
+    alsoAccept: ['gi0/0.30', 'gig0/0.30', 'gigabitethernet0/0.30'],
     explanation:
       'Subinterfaces are the physical name plus a dot and a number. Matching the VLAN, g0/0.30, is the convention.',
   },
