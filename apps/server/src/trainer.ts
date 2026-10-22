@@ -7,6 +7,7 @@ import { getTrainer, isCorrect, makeRound, solve } from '@netlab/modules';
 import type { FastifyInstance } from 'fastify';
 import { requireUser, SESSION_COOKIE } from './auth.ts';
 import type { Db } from './db.ts';
+import { recordPractice } from './progress.ts';
 import { totalXp } from './routes.ts';
 
 interface Best {
@@ -115,6 +116,7 @@ export function trainerRoutes(app: FastifyInstance, db: Db): void {
         [req.params.id, user.id, correct],
       );
       if (!done) return reply.code(409).send({ error: 'This round was already finished.' });
+      if (correct > 0) await recordPractice(db, user.id);
 
       const qualified = correct >= spec.target && done.duration_ms <= spec.limitMs;
       let xpAwarded = 0;

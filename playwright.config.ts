@@ -20,6 +20,7 @@ export default defineConfig({
     command: 'node apps/server/src/index.ts',
     url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,
-    env: { PORT: String(PORT), PGLITE_DIR: '.data/e2e-pglite', ALLOWED_EMAIL_DOMAIN: 'usc.edu.ph' },
+    // Every test registers a student from the same address, so allow more than production's 10 a minute.
+    env: { PORT: String(PORT), PGLITE_DIR: '.data/e2e-pglite', ALLOWED_EMAIL_DOMAIN: 'usc.edu.ph', AUTH_RATE_LIMIT: '100' },
   },
 });

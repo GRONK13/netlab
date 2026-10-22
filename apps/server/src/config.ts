@@ -10,6 +10,8 @@ export interface Config {
   pgliteDir: string;
   /** Lowercase email domains allowed to register, e.g. ["usc.edu.ph"]. Empty = any. */
   allowedEmailDomains: string[];
+  /** Sign-in and registration attempts allowed per minute from one address. */
+  authPerMinute: number;
   /** Built web app to serve, if present. */
   webDist: string;
 }
@@ -27,6 +29,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .split(',')
       .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
       .filter(Boolean),
+    authPerMinute: Number(env.AUTH_RATE_LIMIT ?? 10),
     webDist: `${root}apps/web/dist`,
   };
 }

@@ -1,4 +1,4 @@
-import { Boxes, House, LogOut, Timer, Trophy } from 'lucide-react';
+import { Boxes, Gauge, House, LogOut, Timer, Trophy } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, type Me } from './api.ts';
 import { LedMeter } from './components/LevelCard.tsx';
@@ -7,6 +7,7 @@ import { AuthPage } from './pages/AuthPage.tsx';
 import { Dashboard } from './pages/Dashboard.tsx';
 import { LabPage } from './pages/LabPage.tsx';
 import { LeaderboardPage } from './pages/LeaderboardPage.tsx';
+import { ProgressPage } from './pages/ProgressPage.tsx';
 import { SandboxPage } from './pages/SandboxPage.tsx';
 import { TrainerPage } from './pages/TrainerPage.tsx';
 import { LessonPage } from './pages/LessonPage.tsx';
@@ -18,6 +19,7 @@ type Route =
   | { page: 'lab'; id: string }
   | { page: 'sandbox' }
   | { page: 'trainer' }
+  | { page: 'progress' }
   | { page: 'module' | 'lesson' | 'quiz'; id: string }
   | { page: 'leaderboard' };
 
@@ -26,6 +28,7 @@ function parseHash(hash: string): Route {
   if (lab) return { page: 'lab', id: lab[1]! };
   if (hash === '#/sandbox') return { page: 'sandbox' };
   if (hash === '#/trainer') return { page: 'trainer' };
+  if (hash === '#/progress') return { page: 'progress' };
   const learn = /^#\/learn\/([\w-]+)(?:\/(lesson|quiz))?$/.exec(hash);
   if (learn) return { page: learn[2] === 'lesson' ? 'lesson' : learn[2] === 'quiz' ? 'quiz' : 'module', id: learn[1]! };
   if (hash === '#/leaderboard') return { page: 'leaderboard' };
@@ -34,6 +37,7 @@ function parseHash(hash: string): Route {
 
 const NAV = [
   { href: '#/', page: 'home', label: 'Home', Icon: House },
+  { href: '#/progress', page: 'progress', label: 'Progress', Icon: Gauge },
   { href: '#/trainer', page: 'trainer', label: 'Trainer', Icon: Timer },
   { href: '#/sandbox', page: 'sandbox', label: 'Sandbox', Icon: Boxes },
   { href: '#/leaderboard', page: 'leaderboard', label: 'Leaderboard', Icon: Trophy },
@@ -128,6 +132,7 @@ export function App() {
         {route.page === 'lab' && <LabPage key={route.id} labId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'sandbox' && <SandboxPage />}
         {route.page === 'trainer' && <TrainerPage onProgress={refresh} />}
+        {route.page === 'progress' && <ProgressPage me={me} onProgress={refresh} />}
         {route.page === 'module' && <ModulePage key={route.id} moduleId={route.id} me={me} />}
         {route.page === 'lesson' && <LessonPage key={route.id} moduleId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'quiz' && <QuizPage key={route.id} moduleId={route.id} me={me} onProgress={refresh} />}

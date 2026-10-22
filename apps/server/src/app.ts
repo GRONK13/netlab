@@ -8,6 +8,7 @@ import { authRoutes, loadUser } from './auth.ts';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
 import { moduleRoutes } from './modules.ts';
+import { progressRoutes } from './progress.ts';
 import { apiRoutes } from './routes.ts';
 import { trainerRoutes } from './trainer.ts';
 
@@ -56,6 +57,7 @@ export async function buildApp(db: Db, config: Config): Promise<FastifyInstance>
   apiRoutes(app, db);
   trainerRoutes(app, db);
   moduleRoutes(app, db);
+  progressRoutes(app, db);
   app.get('/api/health', async () => ({ ok: true, commit: COMMIT }));
 
   if (existsSync(config.webDist)) {

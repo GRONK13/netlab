@@ -686,6 +686,85 @@ button {
   margin: 0.55rem 0 0.2rem;
 }
 
+a.stat-link:hover {
+  background: var(--surface-2);
+}
+
+a.stat-link:hover .label-caps {
+  color: var(--accent);
+}
+
+/* ---- progress: streak, week and goal ---- */
+
+.stat-big.saver {
+  font-size: 1.5rem;
+  line-height: 1.5;
+}
+
+.week-strip {
+  list-style: none;
+  margin: 0.35rem 0 0.1rem;
+  padding: 0;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.week-strip li {
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+
+.week-strip li.today {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.week-strip li.later {
+  opacity: 0.55;
+}
+
+.week-strip i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--led-off);
+}
+
+.week-strip i.on {
+  background: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.goal-picker {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  min-width: 0;
+}
+
+.goal-picker legend {
+  float: left;
+  padding: 0;
+  font-weight: 500;
+}
+
+.goal-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.goal-picker p {
+  margin: 0;
+}
+
 .next-up {
   display: flex;
   align-items: center;
@@ -3026,6 +3105,39 @@ input:disabled {
   .next-up {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  /* Two stats to a row; the level meter and anything marked wide get a row each. */
+  .status-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stat {
+    min-width: 0;
+  }
+
+  .stat.wide-sm {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .stat.grow {
+    grid-column: 1 / -1;
+  }
+
+  .board th,
+  .board td {
+    padding: 0.6rem 0.5rem;
+  }
+
+  .board .place {
+    width: auto;
+  }
+
+  .board .num {
+    white-space: nowrap;
   }
 
   .canvas-legend {

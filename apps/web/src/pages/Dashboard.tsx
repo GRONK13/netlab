@@ -3,6 +3,7 @@ import { MODULES } from '@netlab/modules';
 import { ArrowRight, Check, Timer } from 'lucide-react';
 import type { Me } from '../api.ts';
 import { DeviceGlyph } from '../components/DeviceIcon.tsx';
+import { days, dayWord } from '../format.ts';
 import { LedMeter } from '../components/LevelCard.tsx';
 import { stepsFor } from '../moduleSteps.ts';
 
@@ -19,6 +20,7 @@ export function Dashboard({ me }: { me: Me }) {
   const fresh = me.completions.length === 0 && me.moduleSteps.length === 0;
   const first = me.user.displayName.split(/\s+/)[0];
   const lv = me.level;
+  const { streak, week } = me.progress;
 
   return (
     <div className="page">
@@ -40,14 +42,28 @@ export function Dashboard({ me }: { me: Me }) {
             {lv.xp} / {lv.next ?? lv.xp} XP
           </span>
         </div>
-        <div className="stat">
-          <span className="label-caps">Labs done</span>
+        <a href="#/progress" className="stat stat-link">
+          <span className="label-caps">Streak</span>
           <span className="stat-big mono">
-            {pad(done.size)}
-            <small>/{pad(LABS.length)}</small>
+            {pad(streak.current)}
+            <small> {dayWord(streak.current)}</small>
           </span>
-          <span className="stat-sub">{LABS.length - done.size} to go</span>
-        </div>
+          <span className="stat-sub">
+            {streak.practicedToday
+              ? `Longest: ${days(streak.longest)}`
+              : streak.current > 0
+                ? 'Practise today to keep it'
+                : 'Practise today to start one'}
+          </span>
+        </a>
+        <a href="#/progress" className="stat stat-link wide-sm">
+          <span className="label-caps">This week</span>
+          <LedMeter lit={Math.min(week.count, week.goal)} total={week.goal} label="Practice days this week" />
+          <span className="stat-sub">
+            {week.met ? 'Goal met: ' : ''}
+            {week.count} of {week.goal} days
+          </span>
+        </a>
       </section>
 
       {nextModule && nextStep ? (

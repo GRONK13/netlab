@@ -8,6 +8,7 @@ import { ANSWERS, answerText, grade } from '@netlab/modules/answers';
 import type { FastifyInstance } from 'fastify';
 import { requireUser, SESSION_COOKIE } from './auth.ts';
 import type { Db } from './db.ts';
+import { recordPractice } from './progress.ts';
 import { totalXp } from './routes.ts';
 
 const idParams = {
@@ -35,11 +36,13 @@ export function moduleRoutes(app: FastifyInstance, db: Db): void {
       if (!user) return;
       const mod = getModule(req.params.id);
       if (!mod) return reply.code(404).send({ error: 'No such module.' });
-      await db.query(
+      const [read] = await db.query(
         `insert into module_steps (user_id, module_id, step, xp_awarded) values ($1, $2, 'lesson', 0)
-       on conflict do nothing`,
+       on conflict do nothing returning 1`,
         [user.id, mod.id],
       );
+      // Only the first read is practice; re-sending it isn't.
+      if (read) await recordPractice(db, user.id);
       return reply.code(204).send();
     },
   );
@@ -125,6 +128,7 @@ export function moduleRoutes(app: FastifyInstance, db: Db): void {
         [req.params.id, user.id, correct, passed],
       );
       if (!done) return reply.code(409).send({ error: 'This attempt was already submitted.' });
+      if (correct > 0) await recordPractice(db, user.id);
 
       let xpAwarded = 0;
       if (passed) {

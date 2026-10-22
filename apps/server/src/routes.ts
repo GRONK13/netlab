@@ -3,6 +3,7 @@ import { evaluateAll, Network, type LogEntry, type NetworkSnapshot } from '@netl
 import type { FastifyInstance } from 'fastify';
 import { requireUser } from './auth.ts';
 import type { Db } from './db.ts';
+import { progressFor, recordPractice, streaksFor } from './progress.ts';
 
 export const MAX_LOG = 5000;
 
@@ -58,6 +59,7 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
     return {
       user,
       level: levelFor(await totalXp(db, user.id)),
+      progress: await progressFor(db, user.id),
       completions: completions.map((c) => ({ labId: c.lab_id, xpAwarded: c.xp_awarded, completedAt: c.completed_at })),
       moduleSteps: steps.map((s) => ({
         moduleId: s.module_id,
@@ -118,6 +120,7 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
 
       // Never trust the browser's verdict: rebuild the network and grade it here.
       await saveLog(db, user.id, lab.id, req.body.log);
+      if (req.body.log.length > 0) await recordPractice(db, user.id);
       const net = Network.replay(lab.topology, req.body.log);
       const results = evaluateAll(net, lab.objectives.map((o) => o.check));
       const passed = results.every(Boolean);
@@ -175,8 +178,8 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
   app.get('/api/leaderboard', async (req, reply) => {
     if (!requireUser(req, reply)) return;
     // XP counts every source; "labs" counts only the graded labs.
-    const rows = await db.query<{ display_name: string; xp: number; labs: number }>(
-      `select u.display_name, sum(e.xp)::int as xp,
+    const rows = await db.query<{ id: number; display_name: string; xp: number; labs: number }>(
+      `select u.id, u.display_name, sum(e.xp)::int as xp,
               count(*) filter (where e.source = 'lab' and e.ref = any($1::text[]))::int as labs
        from xp_events e join users u on u.id = e.user_id
        group by u.id, u.display_name
@@ -185,6 +188,7 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
        limit 20`,
       [LABS.map((l) => l.id)],
     );
+    const streaks = await streaksFor(db, rows.map((r) => r.id));
     return {
       totalLabs: LABS.length,
       entries: rows.map((r, i) => ({
@@ -192,6 +196,7 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
         displayName: r.display_name,
         xp: r.xp,
         labs: r.labs,
+        streak: streaks.get(r.id) ?? 0,
         ...(({ level, rank }) => ({ level, rank }))(levelFor(r.xp)),
       })),
     };

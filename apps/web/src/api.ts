@@ -1,5 +1,5 @@
 import type { LevelInfo } from '@netlab/labs';
-import type { Problem, Question, TrainerSpec } from '@netlab/modules';
+import type { Problem, Question, Streak, TrainerSpec, Week } from '@netlab/modules';
 import type { LogEntry, NetworkSnapshot } from '@netlab/sim';
 
 export interface User {
@@ -14,6 +14,7 @@ export interface Me {
   level: LevelInfo;
   completions: { labId: string; xpAwarded: number; completedAt: string }[];
   moduleSteps: { moduleId: string; step: 'lesson' | 'trainer' | 'quiz'; xpAwarded: number; completedAt: string }[];
+  progress: { today: string; streak: Streak; week: Week };
 }
 
 export interface QuizStart {
@@ -72,7 +73,15 @@ export interface SubmitResult {
 
 export interface Leaderboard {
   totalLabs: number;
-  entries: { place: number; displayName: string; xp: number; labs: number; level: number; rank: string }[];
+  entries: {
+    place: number;
+    displayName: string;
+    xp: number;
+    labs: number;
+    streak: number;
+    level: number;
+    rank: string;
+  }[];
 }
 
 export class ApiError extends Error {
@@ -122,4 +131,5 @@ export const api = {
   startQuiz: (moduleId: string) => call<QuizStart>('POST', `/api/modules/${moduleId}/quiz`),
   submitQuiz: (attemptId: number, answers: string[]) =>
     call<QuizResult>('POST', `/api/quiz/${attemptId}/submit`, { answers }),
+  setGoal: (days: number) => call<{ week: Week }>('PUT', '/api/me/goal', { days }),
 };

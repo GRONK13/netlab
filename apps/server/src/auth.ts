@@ -87,7 +87,7 @@ const credentials = {
 } as const;
 
 export function authRoutes(app: FastifyInstance, db: Db, config: Config): void {
-  const limit = { rateLimit: { max: 10, timeWindow: '1 minute' } };
+  const limit = { rateLimit: { max: config.authPerMinute, timeWindow: '1 minute' } };
 
   app.post<{ Body: { email: string; password: string; displayName?: string } }>(
     '/api/auth/register',

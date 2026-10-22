@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Leaderboard, type Me } from '../api.ts';
+import { days } from '../format.ts';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -16,7 +17,7 @@ export function LeaderboardPage({ me }: { me: Me }) {
       <header className="page-head">
         <p className="label-caps">Class standings</p>
         <h1>Leaderboard</h1>
-        <p className="muted">Top 20 by XP. Using fewer hints earns more XP per lab.</p>
+        <p className="muted">Top 20 by XP. Using fewer hints earns more XP per lab. Streak is days of practice in a row.</p>
       </header>
       {error && <p className="error">{error}</p>}
       {!board && !error && <p className="muted">Loading…</p>}
@@ -32,7 +33,8 @@ export function LeaderboardPage({ me }: { me: Me }) {
               <tr>
                 <th>Rank</th>
                 <th>Student</th>
-                <th>Level</th>
+                <th className="hide-sm">Level</th>
+                <th className="num">Streak</th>
                 <th className="num">Labs</th>
                 <th className="num">XP</th>
               </tr>
@@ -42,9 +44,10 @@ export function LeaderboardPage({ me }: { me: Me }) {
                 <tr key={e.place} className={e.displayName === me.user.displayName ? 'me' : undefined}>
                   <td className={`place mono${e.place <= 3 ? ' top' : ''}`}>{pad(e.place)}</td>
                   <td className="strong">{e.displayName}</td>
-                  <td>
+                  <td className="hide-sm">
                     <span className="mono muted">LV{pad(e.level)}</span> {e.rank}
                   </td>
+                  <td className="num mono">{e.streak > 0 ? days(e.streak) : '-'}</td>
                   <td className="num mono">
                     {e.labs}/{board.totalLabs}
                   </td>

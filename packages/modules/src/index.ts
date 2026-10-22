@@ -22,6 +22,9 @@ export {
   type ProblemKind,
 } from './trainer.ts';
 export { mulberry32, type Rng } from './random.ts';
+export { dayNumber, fromDayNumber, weekStart } from './progress/days.ts';
+export { streakOf, type Streak } from './progress/streak.ts';
+export { GOAL_DEFAULT, GOAL_MAX, GOAL_MIN, weekOf, type Week } from './progress/week.ts';
 export {
   WIDGETS,
   type WidgetName,

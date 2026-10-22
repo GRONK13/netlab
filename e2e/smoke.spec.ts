@@ -148,6 +148,27 @@ test('a student reads the Module 1 lesson and passes the checkpoint quiz', async
   await expect(page.getByText('2/5 steps')).toBeVisible();
 });
 
+test('practice starts a streak, and the weekly goal can be changed', async ({ page }) => {
+  await register(page, `Streaker${stamp}`);
+  const panel = page.getByRole('region', { name: 'Your progress' });
+  await expect(panel.getByText('Practise today to start one')).toBeVisible();
+  await expect(panel.getByText('0 of 3 days')).toBeVisible();
+
+  await page.getByRole('link', { name: /Start module/ }).click();
+  await page.getByRole('button', { name: 'Finish lesson' }).click();
+  await expect(page.getByText("You've finished this lesson.")).toBeVisible();
+  await nav(page, 'Home').click();
+  await expect(panel.getByText('Longest: 1')).toBeVisible();
+  await expect(panel.getByText('1 of 3 days')).toBeVisible();
+
+  await nav(page, 'Progress').click();
+  await expect(page.getByText(/\(today\): practised/)).toBeAttached();
+  await page.getByRole('radio', { name: '4 days' }).click();
+  await expect(page.getByText('1 of 4 days')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('radio', { name: '4 days' })).toBeChecked();
+});
+
 test('guided practice reveals one step at a time and explains each', async ({ page }) => {
   await register(page, `Guided${stamp}`);
   await page.goto('/#/lab/ip-practice');

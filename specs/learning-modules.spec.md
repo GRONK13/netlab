@@ -105,4 +105,4 @@ Decided with the project owner on 2026-10-20: quizzes allow unlimited retries wi
 
 ## Out of scope
 
-Weekly XP targets, streaks, badges, mastery per CCNA domain, Modules 2–4, instructor views.
+Instructor views. (Streaks, goals, badges and mastery: `specs/goals-streaks.spec.md`.)

@@ -39,6 +39,12 @@ export async function connect(databaseUrl?: string, pgliteDir?: string): Promise
   };
 }
 
+/**
+ * The Manila calendar day of a timestamp, as SQL. Manila is UTC+8 with no daylight
+ * saving, so a fixed offset is exact and doesn't need timezone data.
+ */
+export const manilaDay = (ts: string) => `((${ts} at time zone 'UTC') + interval '8 hours')::date`;
+
 /** Schema changes, applied in order and recorded in schema_migrations. Append only. */
 const MIGRATIONS: string[] = [
   `
@@ -118,6 +124,30 @@ const MIGRATIONS: string[] = [
     submitted_at timestamptz
   );
   create index quiz_attempts_user_idx on quiz_attempts(user_id, module_id);
+  `,
+  `
+  -- Streaks and weekly goals: one row per Manila day with real practice.
+  create table practice_days (
+    user_id integer not null references users(id) on delete cascade,
+    day date not null,
+    primary key (user_id, day)
+  );
+  -- Weeks (by their Monday) in which the student reached the goal they had then.
+  create table goal_weeks (
+    user_id integer not null references users(id) on delete cascade,
+    week date not null,
+    goal smallint not null,
+    primary key (user_id, week)
+  );
+  alter table users add column weekly_goal smallint not null default 3 check (weekly_goal between 2 and 5);
+  insert into practice_days (user_id, day)
+    select distinct user_id, ${manilaDay('ts')} from (
+      select user_id, completed_at as ts from completions
+      union all select user_id, completed_at from module_steps
+      union all select user_id, finished_at from trainer_rounds where finished_at is not null and correct > 0
+      union all select user_id, submitted_at from quiz_attempts where submitted_at is not null and correct > 0
+    ) work
+    on conflict do nothing;
   `,
 ];
 

@@ -1,4 +1,4 @@
-import { solve, type Problem, type Question } from '@netlab/modules';
+import { dayNumber, fromDayNumber, solve, type Problem, type Question } from '@netlab/modules';
 import { ANSWERS, answerText } from '@netlab/modules/answers';
 import { Network } from '@netlab/sim';
 import type { FastifyInstance } from 'fastify';
@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SOLUTIONS } from '../../../packages/labs/test/solutions.ts';
 import { buildApp } from '../src/app.ts';
 import { loadConfig } from '../src/config.ts';
-import { connect, migrate, type Db } from '../src/db.ts';
+import { connect, manilaDay, migrate, type Db } from '../src/db.ts';
 
 let db: Db;
 let app: FastifyInstance;
@@ -22,10 +22,12 @@ afterAll(async () => {
   await db.close();
 });
 
-async function register(email: string, displayName = 'Student') {
+// Registration allows 10 a minute per address, so later suites register from another one.
+async function register(email: string, displayName = 'Student', remoteAddress = '127.0.0.1') {
   const res = await app.inject({
     method: 'POST',
     url: '/api/auth/register',
+    remoteAddress,
     payload: { email, password: 'correct horse', displayName },
   });
   const cookie = res.cookies.find((c) => c.name === 'netlab_sid');
@@ -327,5 +329,125 @@ describe('learning modules', () => {
     await db.query(`update quiz_attempts set started_at = now() - interval '3 hours' where id = $1`, [quiz.attemptId]);
     expect((await submit(quiz.attemptId, [])).statusCode).toBe(410);
     expect((await submit(999999, [])).statusCode).toBe(404);
+  });
+});
+
+describe('streaks and the weekly goal', () => {
+  let cookie: string;
+  let id: number;
+  beforeAll(async () => {
+    const r = await register('ivy@school.edu', 'Ivy', '10.0.0.2');
+    cookie = r.cookie;
+    id = r.res.json().user.id;
+  });
+
+  const me = async () => (await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json();
+  const setGoal = (payload: unknown, who = cookie) =>
+    app.inject({ method: 'PUT', url: '/api/me/goal', headers: { cookie: who }, payload: payload as object });
+  const rows = async (table: 'practice_days' | 'goal_weeks', column: 'day' | 'week') =>
+    (await db.query<{ d: string }>(`select ${column}::text as d from ${table} where user_id = $1 order by 1`, [id])).map(
+      (r) => r.d,
+    );
+
+  it('reads Manila days off the database clock', async () => {
+    const day = async (ts: string) =>
+      (await db.query<{ d: string }>(`select ${manilaDay(`timestamptz '${ts}'`)}::text as d`))[0]!.d;
+    expect(await day('2026-10-20T15:59:59Z')).toBe('2026-10-20');
+    expect(await day('2026-10-20T16:30:00Z')).toBe('2026-10-21');
+  });
+
+  it('starts at zero with a goal of 3 days', async () => {
+    const { progress } = await me();
+    expect(progress.streak).toEqual({ current: 0, longest: 0, practicedToday: false, freeMissUsed: false });
+    expect(progress.week).toMatchObject({ goal: 3, count: 0, met: false });
+    expect(progress.week.days).toEqual([false, false, false, false, false, false, false]);
+  });
+
+  it('counts only real work as practice', async () => {
+    await post('/api/labs/switch-basics/submit', cookie, { log: [] });
+    const round = (await post('/api/trainer/subnetting/start', cookie)).json();
+    await post(`/api/trainer/rounds/${round.roundId}/finish`, cookie, { answers: [] });
+    expect(await rows('practice_days', 'day')).toEqual([]);
+
+    await post('/api/labs/switch-basics/submit', cookie, { log: [{ device: 'SW1', line: 'enable' }] });
+    const { progress } = await me();
+    expect(await rows('practice_days', 'day')).toEqual([progress.today]);
+    expect(progress.streak).toMatchObject({ current: 1, longest: 1, practicedToday: true });
+    expect(progress.week.count).toBe(1);
+  });
+
+  it('counts a lesson the first time it is read', async () => {
+    await db.query('delete from practice_days where user_id = $1', [id]);
+    await post('/api/modules/switching-vlans/lesson', cookie);
+    expect(await rows('practice_days', 'day')).toHaveLength(1);
+    await db.query('delete from practice_days where user_id = $1', [id]);
+    await post('/api/modules/switching-vlans/lesson', cookie);
+    expect(await rows('practice_days', 'day')).toEqual([]);
+  });
+
+  it('validates the goal and needs a session', async () => {
+    for (const days of [1, 6, 2.5, null]) expect((await setGoal({ days })).statusCode).toBe(400);
+    expect((await setGoal({})).statusCode).toBe(400);
+    expect((await setGoal({ days: 4 }, '')).statusCode).toBe(401);
+    expect((await me()).progress.week.goal).toBe(3);
+  });
+
+  it('records the week once the goal is reached', async () => {
+    await post('/api/labs/switch-basics/submit', cookie, { log: [{ device: 'SW1', line: 'enable' }] });
+    const { today, week } = (await me()).progress;
+    const res = await setGoal({ days: 2 });
+    expect(res.json().week).toMatchObject({ start: week.start, goal: 2, count: 1, met: false });
+    expect(await rows('goal_weeks', 'week')).toEqual([]);
+
+    // Another day this week, written directly because the test can't move the clock.
+    const other = week.start === today ? fromDayNumber(dayNumber(today) + 1) : week.start;
+    await db.query('insert into practice_days (user_id, day) values ($1, $2)', [id, other]);
+    await setGoal({ days: 3 });
+    await setGoal({ days: 2 });
+    expect(await rows('goal_weeks', 'week')).toEqual([]);
+    // Today's first practice reaches the goal.
+    await db.query('delete from practice_days where user_id = $1 and day = $2', [id, today]);
+    await post('/api/labs/switch-basics/submit', cookie, { log: [{ device: 'SW1', line: 'enable' }] });
+    expect(await rows('goal_weeks', 'week')).toEqual([week.start]);
+    expect((await me()).progress.week).toMatchObject({ goal: 2, count: 2, met: true });
+
+    // Changing the goal doesn't record or undo a week on its own.
+    expect((await setGoal({ days: 5 })).json().week).toMatchObject({ goal: 5, met: false });
+    expect(await rows('goal_weeks', 'week')).toEqual([week.start]);
+  });
+
+  it('shows streaks on the leaderboard, without user ids', async () => {
+    const board = (await app.inject({ method: 'GET', url: '/api/leaderboard', headers: { cookie } })).json();
+    expect(board.entries.find((e: { displayName: string }) => e.displayName === 'Dave')).toMatchObject({ streak: 1 });
+    for (const e of board.entries) expect(Object.keys(e)).not.toContain('id');
+  });
+
+  it('backfills practice days from work done before streaks existed', async () => {
+    const old = await connect();
+    await migrate(old);
+    // Roll migration 5 back, add earlier work, and run it again.
+    await old.exec(`drop table practice_days; drop table goal_weeks; alter table users drop column weekly_goal;
+      delete from schema_migrations where version = 5;`);
+    const [u] = await old.query<{ id: number }>(
+      `insert into users (email, display_name, password_hash) values ('old@school.edu', 'Old', 'x') returning id`,
+    );
+    await old.query(
+      `insert into completions (user_id, lab_id, xp_awarded, hints_used, completed_at)
+       values ($1, 'switch-basics', 100, 0, '2026-10-01T17:00:00Z')`,
+      [u!.id],
+    );
+    await old.query(
+      `insert into trainer_rounds (user_id, kind, seed, started_at, finished_at, correct) values
+       ($1, 'subnetting', 1, '2026-10-03T01:00:00Z', '2026-10-03T01:04:00Z', 6),
+       ($1, 'subnetting', 2, '2026-10-04T01:00:00Z', '2026-10-04T01:04:00Z', 0),
+       ($1, 'subnetting', 3, '2026-10-05T01:00:00Z', null, null)`,
+      [u!.id],
+    );
+    expect(await migrate(old)).toBe(1);
+    const days = await old.query<{ d: string }>('select day::text as d from practice_days order by 1');
+    expect(days.map((r) => r.d)).toEqual(['2026-10-02', '2026-10-03']);
+    const [goal] = await old.query<{ weekly_goal: number }>('select weekly_goal from users');
+    expect(goal!.weekly_goal).toBe(3);
+    await old.close();
   });
 });
