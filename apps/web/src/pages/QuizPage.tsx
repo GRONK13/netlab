@@ -3,6 +3,7 @@ import { ArrowLeft, Check, CircleCheck, ListChecks, Play, RotateCcw, X } from 'l
 import { useState, type FormEvent } from 'react';
 import { api, ApiError, type Me, type QuizResult } from '../api.ts';
 import { Inline } from '../components/Briefing.tsx';
+import { NewBadges } from '../components/NewBadges.tsx';
 
 const PLACEHOLDER = { ip: 'a.b.c.d', number: 'number', text: '' } as const;
 
@@ -161,6 +162,7 @@ export function QuizPage({
           </div>
         </div>
       )}
+      {result && <NewBadges ids={result.newBadges} />}
 
       {!attempt && (
         <div className="quiz-intro">

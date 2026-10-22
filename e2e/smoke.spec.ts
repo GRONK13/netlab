@@ -60,14 +60,28 @@ test('a student completes Switch Basics, earns XP and reaches the leaderboard', 
 
   await page.getByRole('button', { name: 'Submit' }).click();
   await expect(dialog.getByRole('heading', { name: `Lab complete! +${lab.xp} XP` })).toBeVisible();
+  // Its first lab, with no hints: two badges, announced in the result.
+  const earned = dialog.getByRole('list', { name: 'Badges earned' });
+  await expect(earned).toContainText('Badge earned: First Link');
+  await expect(earned).toContainText('Badge earned: No Hints Needed');
   // A module's challenge leads back to its module; any other lab leads to the next lab.
-  const mod = MODULES.find((m) => m.challenge === lab.id);
-  const next = mod ? `Back to Module ${mod.number}` : /Next lab/;
+  const parent = MODULES.find((m) => m.challenge === lab.id);
+  const next = parent ? `Back to Module ${parent.number}` : /Next lab/;
   await expect(dialog.getByRole('link', { name: next })).toBeVisible();
   await dialog.getByRole('button', { name: 'Stay in the lab' }).click();
 
   await nav(page, 'Leaderboard').click();
-  await expect(page.getByRole('cell', { name: student })).toBeVisible();
+  const row = page.getByRole('row').filter({ hasText: student });
+  await expect(row).toContainText('1 day');
+
+  // The Progress page shows the badges and the lab's domain, partly mastered.
+  await nav(page, 'Progress').click();
+  const badge = (name: string) => page.locator('.badge-grid li').filter({ hasText: name });
+  await expect(badge('First Link')).toContainText('Earned');
+  await expect(badge('No Hints Needed')).toContainText('Earned');
+  await expect(badge('Ten for Ten')).toContainText('Not yet');
+  const domain = parent?.ccnaDomain ?? lab.ccnaDomain;
+  await expect(page.locator('.mastery-list li').filter({ hasText: domain })).toContainText(/1\/\d/);
 });
 
 test('the sandbox saves a PC, and its desktop runs commands', async ({ page }) => {

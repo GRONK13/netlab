@@ -7,6 +7,7 @@ import { SOLUTIONS } from '../../../packages/labs/test/solutions.ts';
 import { buildApp } from '../src/app.ts';
 import { loadConfig } from '../src/config.ts';
 import { connect, manilaDay, migrate, type Db } from '../src/db.ts';
+import { backfillBadges } from '../src/progress.ts';
 
 let db: Db;
 let app: FastifyInstance;
@@ -277,8 +278,8 @@ describe('learning modules', () => {
     post(`/api/quiz/${attemptId}/submit`, who, { answers });
 
   it('records a lesson as read, once, for 0 XP', async () => {
-    expect((await post('/api/modules/ip-addressing/lesson', cookie)).statusCode).toBe(204);
-    expect((await post('/api/modules/ip-addressing/lesson', cookie)).statusCode).toBe(204);
+    expect((await post('/api/modules/ip-addressing/lesson', cookie)).json()).toEqual({ newBadges: [] });
+    expect((await post('/api/modules/ip-addressing/lesson', cookie)).statusCode).toBe(200);
     const me = (await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json();
     expect(me.moduleSteps).toMatchObject([{ moduleId: 'ip-addressing', step: 'lesson', xpAwarded: 0 }]);
     expect(me.level.xp).toBe(0);
@@ -449,5 +450,63 @@ describe('streaks and the weekly goal', () => {
     const [goal] = await old.query<{ weekly_goal: number }>('select weekly_goal from users');
     expect(goal!.weekly_goal).toBe(3);
     await old.close();
+  });
+});
+
+describe('badges', () => {
+  let cookie: string;
+  let id: number;
+  beforeAll(async () => {
+    const r = await register('jo@school.edu', 'Jo', '10.0.0.3');
+    cookie = r.cookie;
+    id = r.res.json().user.id;
+  });
+
+  const me = async () => (await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json();
+
+  it('awards badges once, in the response that earns them', async () => {
+    const log = SOLUTIONS['switch-basics'];
+    const first = await post('/api/labs/switch-basics/submit', cookie, { log });
+    expect(first.json()).toMatchObject({ passed: true, newBadges: ['first-link', 'no-hints'] });
+    const again = await post('/api/labs/switch-basics/submit', cookie, { log });
+    expect(again.json().newBadges).toEqual([]);
+
+    const { progress } = await me();
+    expect(progress.badges.map((b: { id: string }) => b.id)).toEqual(['first-link', 'no-hints']);
+    expect(new Date(progress.badges[0].earnedAt).getTime()).toBeGreaterThan(0);
+  });
+
+  it('awards quiz and trainer badges from their results', async () => {
+    const keys = ANSWERS['ip-addressing']!;
+    const right = (q: Question) => (q.kind === 'choice' ? String(keys[q.id]!.answer) : answerText(q, keys[q.id]!));
+    const quiz = (await post('/api/modules/ip-addressing/quiz', cookie)).json();
+    const res = await post(`/api/quiz/${quiz.attemptId}/submit`, cookie, { answers: quiz.questions.map(right) });
+    expect(res.json()).toMatchObject({ correct: 10, newBadges: ['ten-for-ten'] });
+
+    const round = (await post('/api/trainer/subnetting/start', cookie)).json();
+    const done = await post(`/api/trainer/rounds/${round.roundId}/finish`, cookie, {
+      answers: round.problems.map(solve),
+    });
+    expect(done.json()).toMatchObject({ correct: 10, newBadges: ['subnet-sprinter'] });
+  });
+
+  it('backfills badges earned before they existed; /api/me only reads them', async () => {
+    await backfillBadges(db); // Earlier suites' students, so the count below is only Jo's.
+    await db.query('delete from badges where user_id = $1', [id]);
+    expect((await me()).progress.badges).toEqual([]);
+    expect(await backfillBadges(db)).toBe(4);
+    const { progress } = await me();
+    expect(progress.badges.map((b: { id: string }) => b.id).sort()).toEqual(
+      ['first-link', 'no-hints', 'subnet-sprinter', 'ten-for-ten'],
+    );
+    expect(await backfillBadges(db)).toBe(0);
+  });
+
+  it('counts badges on the leaderboard', async () => {
+    const board = (await app.inject({ method: 'GET', url: '/api/leaderboard', headers: { cookie } })).json();
+    expect(board.entries.find((e: { displayName: string }) => e.displayName === 'Jo')).toMatchObject({
+      badges: 4,
+      streak: 1,
+    });
   });
 });

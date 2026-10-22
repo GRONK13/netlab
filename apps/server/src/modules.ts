@@ -8,7 +8,7 @@ import { ANSWERS, answerText, grade } from '@netlab/modules/answers';
 import type { FastifyInstance } from 'fastify';
 import { requireUser, SESSION_COOKIE } from './auth.ts';
 import type { Db } from './db.ts';
-import { recordPractice } from './progress.ts';
+import { recordPractice, syncBadges } from './progress.ts';
 import { totalXp } from './routes.ts';
 
 const idParams = {
@@ -43,7 +43,7 @@ export function moduleRoutes(app: FastifyInstance, db: Db): void {
       );
       // Only the first read is practice; re-sending it isn't.
       if (read) await recordPractice(db, user.id);
-      return reply.code(204).send();
+      return { newBadges: await syncBadges(db, user.id) };
     },
   );
 
@@ -155,6 +155,7 @@ export function moduleRoutes(app: FastifyInstance, db: Db): void {
             })
           : null,
         level: levelFor(await totalXp(db, user.id)),
+        newBadges: await syncBadges(db, user.id),
       };
     },
   );

@@ -7,7 +7,7 @@ import { getTrainer, isCorrect, makeRound, solve } from '@netlab/modules';
 import type { FastifyInstance } from 'fastify';
 import { requireUser, SESSION_COOKIE } from './auth.ts';
 import type { Db } from './db.ts';
-import { recordPractice } from './progress.ts';
+import { recordPractice, syncBadges } from './progress.ts';
 import { totalXp } from './routes.ts';
 
 interface Best {
@@ -138,6 +138,7 @@ export function trainerRoutes(app: FastifyInstance, db: Db): void {
         xpAwarded,
         best: await bestRound(db, user.id, spec.kind),
         level: levelFor(await totalXp(db, user.id)),
+        newBadges: await syncBadges(db, user.id),
       };
     },
   );

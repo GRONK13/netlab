@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { useState } from 'react';
 import { api, type Me } from '../api.ts';
 import { Markdown } from '../components/Markdown.tsx';
+import { NewBadges } from '../components/NewBadges.tsx';
 import { stepsFor } from '../moduleSteps.ts';
 
 export function LessonPage({
@@ -17,6 +18,7 @@ export function LessonPage({
   const mod = getModule(moduleId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [newBadges, setNewBadges] = useState<string[]>([]);
   if (!mod) {
     return (
       <div className="page">
@@ -33,7 +35,7 @@ export function LessonPage({
     setBusy(true);
     setError('');
     try {
-      await api.lessonDone(mod.id);
+      setNewBadges((await api.lessonDone(mod.id)).newBadges);
       await onProgress();
     } catch {
       setError("Couldn't save your progress. Check your connection and try again.");
@@ -82,9 +84,12 @@ export function LessonPage({
           <section className="lesson-end panel">
             {error && <p className="error">{error}</p>}
             {read ? (
-              <p className="done-mark">
-                <Check size={15} strokeWidth={3} /> You've finished this lesson.
-              </p>
+              <>
+                <p className="done-mark">
+                  <Check size={15} strokeWidth={3} /> You've finished this lesson.
+                </p>
+                <NewBadges ids={newBadges} />
+              </>
             ) : (
               <>
                 <p>That's the whole lesson. Mark it finished to tick it off in the module.</p>

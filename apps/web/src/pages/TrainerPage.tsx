@@ -3,6 +3,7 @@ import { Check, CircleCheck, ListChecks, Play, RotateCcw, Timer, X } from 'lucid
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError, type TrainerBest, type TrainerInfo, type TrainerResult } from '../api.ts';
 import { LedMeter } from '../components/LevelCard.tsx';
+import { NewBadges } from '../components/NewBadges.tsx';
 
 const KIND = 'subnetting';
 
@@ -253,6 +254,7 @@ export function TrainerPage({ onProgress }: { onProgress: () => Promise<void> })
               <div>Personal best: {bestText(result.best, result.total)}</div>
             </div>
           </div>
+          <NewBadges ids={result.newBadges} />
           <div className="panel table-wrap">
             <table className="board">
               <thead>

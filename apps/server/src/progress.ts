@@ -1,9 +1,15 @@
-// Streaks and the weekly goal. A practice day is a Manila calendar day, by the database
-// clock, on which the server saw real work; the browser can't record one itself.
+// Streaks, the weekly goal and badges. A practice day is a Manila calendar day, by the
+// database clock, on which the server saw real work; the browser can't record one itself.
+// Badges are decided by the shared rules in @netlab/modules and kept once earned.
 
+import { LABS } from '@netlab/labs';
 import {
+  BADGES,
   dayNumber,
+  doneFrom,
+  earnedBadges,
   fromDayNumber,
+  getTrainer,
   GOAL_MAX,
   GOAL_MIN,
   streakOf,
@@ -20,7 +26,10 @@ export interface Progress {
   today: string;
   streak: Streak;
   week: Week;
+  badges: { id: string; earnedAt: string }[];
 }
+
+const BADGE_IDS = BADGES.map((b) => b.id);
 
 export async function manilaToday(db: Db): Promise<string> {
   const [r] = await db.query<{ today: string }>(`select ${manilaDay('now()')}::text as today`);
@@ -58,6 +67,52 @@ async function practiceDays(db: Db, userId: number): Promise<string[]> {
   return rows.map((r) => r.day);
 }
 
+/**
+ * Awards every badge the student has earned but doesn't hold yet, and returns the new
+ * ones in display order. Only graded events and the startup backfill call this, so a
+ * page load never claims a badge before the event that earned it can report it.
+ */
+export async function syncBadges(db: Db, userId: number): Promise<string[]> {
+  const [labs, steps, [more], longest, held] = await Promise.all([
+    db.query<{ lab_id: string; hints_used: number }>(
+      'select lab_id, hints_used from completions where user_id = $1',
+      [userId],
+    ),
+    db.query<{ moduleId: string; step: string }>(
+      'select module_id as "moduleId", step from module_steps where user_id = $1',
+      [userId],
+    ),
+    db.query<{ perfect_quiz: boolean; fastest: number | null; goal_weeks: number }>(
+      `select exists (select 1 from quiz_attempts where user_id = $1 and submitted_at is not null
+                       and correct = jsonb_array_length(question_ids)) as perfect_quiz,
+              (select min(duration_ms) from trainer_rounds where user_id = $1 and kind = 'subnetting'
+                 and finished_at is not null and correct = $2) as fastest,
+              (select count(*)::int from goal_weeks where user_id = $1) as goal_weeks`,
+      [userId, getTrainer('subnetting')!.problems],
+    ),
+    Promise.all([practiceDays(db, userId), manilaToday(db)]).then(([d, t]) => streakOf(d, t).longest),
+    db.query<{ badge_id: string }>('select badge_id from badges where user_id = $1', [userId]),
+  ]);
+  const earned = earnedBadges({
+    done: doneFrom(labs.map((l) => l.lab_id), steps),
+    noHintLabs: labs.filter((l) => l.hints_used === 0 && LABS.some((g) => g.id === l.lab_id)).length,
+    perfectQuiz: more!.perfect_quiz,
+    fastestPerfectRound: more!.fastest,
+    longestStreak: longest,
+    goalWeeks: more!.goal_weeks,
+  });
+  const holding = new Set(held.map((h) => h.badge_id));
+  const missing = earned.filter((id) => !holding.has(id));
+  if (missing.length === 0) return [];
+  const added = await db.query<{ badge_id: string }>(
+    `insert into badges (user_id, badge_id) select $1, unnest($2::text[])
+     on conflict do nothing returning badge_id`,
+    [userId, missing],
+  );
+  const fresh = new Set(added.map((a) => a.badge_id));
+  return earned.filter((id) => fresh.has(id));
+}
+
 export async function progressFor(db: Db, userId: number): Promise<Progress> {
   const [[user], days] = await Promise.all([
     db.query<{ goal: number; today: string }>(
@@ -67,7 +122,39 @@ export async function progressFor(db: Db, userId: number): Promise<Progress> {
     practiceDays(db, userId),
   ]);
   const { goal, today } = user!;
-  return { today, streak: streakOf(days, today), week: weekOf(days, today, goal) };
+  const streak = streakOf(days, today);
+  const badges = await db.query<{ badge_id: string; earned_at: string }>(
+    'select badge_id, earned_at from badges where user_id = $1 and badge_id = any($2::text[]) order by earned_at, badge_id',
+    [userId, BADGE_IDS],
+  );
+  return {
+    today,
+    streak,
+    week: weekOf(days, today, goal),
+    badges: badges.map((b) => ({ id: b.badge_id, earnedAt: b.earned_at })),
+  };
+}
+
+/**
+ * Awards badges earned before they existed, or under a rule added since. Rules only
+ * change with a deploy, so running this at startup keeps everyone current. Returns how
+ * many badges it awarded.
+ */
+export async function backfillBadges(db: Db): Promise<number> {
+  const users = await db.query<{ id: number }>('select id from users');
+  let awarded = 0;
+  for (const u of users) awarded += (await syncBadges(db, u.id)).length;
+  return awarded;
+}
+
+/** How many badges each of several students holds (the leaderboard). */
+export async function badgeCounts(db: Db, userIds: number[]): Promise<Map<number, number>> {
+  const rows = await db.query<{ user_id: number; n: number }>(
+    `select user_id, count(*)::int as n from badges
+     where user_id = any($1::int[]) and badge_id = any($2::text[]) group by user_id`,
+    [userIds, BADGE_IDS],
+  );
+  return new Map(rows.map((r) => [r.user_id, r.n]));
 }
 
 /** Current streaks for several students at once (the leaderboard). */

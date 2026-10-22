@@ -3,7 +3,7 @@ import { evaluateAll, Network, type LogEntry, type NetworkSnapshot } from '@netl
 import type { FastifyInstance } from 'fastify';
 import { requireUser } from './auth.ts';
 import type { Db } from './db.ts';
-import { progressFor, recordPractice, streaksFor } from './progress.ts';
+import { badgeCounts, progressFor, recordPractice, streaksFor, syncBadges } from './progress.ts';
 
 export const MAX_LOG = 5000;
 
@@ -142,7 +142,8 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
         else alreadyCompleted = true;
       }
       const xp = await totalXp(db, user.id);
-      return { passed, results, xpAwarded, alreadyCompleted, level: levelFor(xp) };
+      const newBadges = await syncBadges(db, user.id);
+      return { passed, results, xpAwarded, alreadyCompleted, level: levelFor(xp), newBadges };
     },
   );
 
@@ -188,7 +189,8 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
        limit 20`,
       [LABS.map((l) => l.id)],
     );
-    const streaks = await streaksFor(db, rows.map((r) => r.id));
+    const ids = rows.map((r) => r.id);
+    const [streaks, badges] = await Promise.all([streaksFor(db, ids), badgeCounts(db, ids)]);
     return {
       totalLabs: LABS.length,
       entries: rows.map((r, i) => ({
@@ -197,6 +199,7 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
         xp: r.xp,
         labs: r.labs,
         streak: streaks.get(r.id) ?? 0,
+        badges: badges.get(r.id) ?? 0,
         ...(({ level, rank }) => ({ level, rank }))(levelFor(r.xp)),
       })),
     };

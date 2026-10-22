@@ -1,13 +1,18 @@
-import { GOAL_MAX, GOAL_MIN } from '@netlab/modules';
+import { BADGES, GOAL_MAX, GOAL_MIN, masteryByDomain } from '@netlab/modules';
 import { useState } from 'react';
 import { api, type Me } from '../api.ts';
+import { BadgeIcon } from '../components/BadgeIcon.tsx';
+import { LedMeter } from '../components/LevelCard.tsx';
 import { WeekStrip } from '../components/WeekStrip.tsx';
-import { days, dayWord } from '../format.ts';
+import { dateOf, days, dayWord } from '../format.ts';
+import { doneFor } from '../moduleSteps.ts';
 
 const GOALS = Array.from({ length: GOAL_MAX - GOAL_MIN + 1 }, (_, i) => GOAL_MIN + i);
 
 export function ProgressPage({ me, onProgress }: { me: Me; onProgress: () => Promise<void> }) {
   const { today, streak, week } = me.progress;
+  const mastery = masteryByDomain(doneFor(me));
+  const earned = new Map(me.progress.badges.map((b) => [b.id, b.earnedAt]));
   // The goal being saved, shown as chosen until the server confirms it.
   const [pending, setPending] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -86,6 +91,65 @@ export function ProgressPage({ me, onProgress }: { me: Me; onProgress: () => Pro
           </p>
           {error && <p className="error">{error}</p>}
         </fieldset>
+      </section>
+
+      <section>
+        <div className="section-head">
+          <h2>Mastery by CCNA domain</h2>
+          <span className="mono muted small">CCNA 200-301</span>
+        </div>
+        <ol className="panel mastery-list">
+          {mastery.map((d) => (
+            <li key={d.domain}>
+              <span className="mastery-name">
+                <strong>{d.domain}</strong>
+                <span className="muted small">{d.weight}% of the exam</span>
+              </span>
+              {d.total === 0 ? (
+                <span className="muted small mastery-soon">Coming soon</span>
+              ) : (
+                <>
+                  <LedMeter lit={d.done} total={d.total} label={`${d.domain}: ${d.done} of ${d.total} done`} />
+                  <span className="mono mastery-count">
+                    {d.done}/{d.total}
+                  </span>
+                </>
+              )}
+            </li>
+          ))}
+        </ol>
+        <p className="muted small">
+          Every lesson, guided practice, trainer, quiz and challenge counts toward its module's domain.
+        </p>
+      </section>
+
+      <section>
+        <div className="section-head">
+          <h2>Badges</h2>
+          <span className="mono muted small">
+            {earned.size} of {BADGES.length} earned
+          </span>
+        </div>
+        <ul className="badge-grid">
+          {BADGES.map((b) => {
+            const at = earned.get(b.id);
+            return (
+              <li key={b.id} className={at ? 'earned' : 'locked'}>
+                <span className="badge-mark">
+                  <BadgeIcon name={b.icon} />
+                </span>
+                <span className="badge-text">
+                  <strong>{b.name}</strong>
+                  <span className="muted small">{b.description}</span>
+                  <span className="mono small badge-state">
+                    {at ? `Earned ${dateOf(at)}` : 'Not yet'}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="muted small">Badges are for show: they don't add XP.</p>
       </section>
     </div>
   );

@@ -1,9 +1,9 @@
 import { getLab } from '@netlab/labs';
-import { getTrainer, type Module } from '@netlab/modules';
+import { doneFrom, getTrainer, moduleSteps, type Module, type StepKey } from '@netlab/modules';
 import type { Me } from './api.ts';
 
 export interface Step {
-  key: 'lesson' | 'practice' | 'trainer' | 'quiz' | 'challenge';
+  key: StepKey;
   title: string;
   description: string;
   xp: number;
@@ -11,61 +11,54 @@ export interface Step {
   href: string;
 }
 
+/** What this student has finished, for the shared progress functions. */
+export const doneFor = (me: Me) => doneFrom(me.completions.map((c) => c.labId), me.moduleSteps);
+
 /** A module's steps in order, with this student's progress. Steps a module doesn't have are left out. */
 export function stepsFor(mod: Module, me: Me): Step[] {
-  const stepDone = (step: string) =>
-    me.moduleSteps.some((s) => s.moduleId === mod.id && s.step === step);
-  const labDone = (id: string) => me.completions.some((c) => c.labId === id);
-  const steps: Step[] = [
-    {
-      key: 'lesson',
-      title: 'Lesson',
-      description: `${mod.lesson.length} short sections with worked examples.`,
-      xp: 0,
-      done: stepDone('lesson'),
-      href: `#/learn/${mod.id}/lesson`,
-    },
-  ];
-  const practice = mod.practice ? getLab(mod.practice) : undefined;
-  if (practice) {
-    steps.push({
-      key: 'practice',
-      title: `Guided practice: ${practice.title}`,
-      description: practice.summary,
-      xp: practice.xp,
-      done: labDone(practice.id),
-      href: `#/lab/${practice.id}`,
-    });
-  }
-  const trainer = mod.trainer ? getTrainer(mod.trainer) : undefined;
-  if (trainer) {
-    steps.push({
-      key: 'trainer',
-      title: trainer.title,
-      description: `${trainer.problems} timed problems. Get ${trainer.target} right within ${trainer.limitMs / 60_000} minutes.`,
-      xp: trainer.xp,
-      done: stepDone('trainer'),
-      href: '#/trainer',
-    });
-  }
-  steps.push({
-    key: 'quiz',
-    title: 'Checkpoint quiz',
-    description: `${mod.quiz.draw} questions from a pool of ${mod.quiz.questions.length}. Pass with ${mod.quiz.pass}.`,
-    xp: mod.quiz.xp,
-    done: stepDone('quiz'),
-    href: `#/learn/${mod.id}/quiz`,
+  return moduleSteps(mod, doneFor(me)).map(({ key, ref, done }): Step => {
+    switch (key) {
+      case 'lesson':
+        return {
+          key,
+          title: 'Lesson',
+          description: `${mod.lesson.length} short sections with worked examples.`,
+          xp: 0,
+          done,
+          href: `#/learn/${mod.id}/lesson`,
+        };
+      case 'trainer': {
+        const trainer = getTrainer(ref)!;
+        return {
+          key,
+          title: trainer.title,
+          description: `${trainer.problems} timed problems. Get ${trainer.target} right within ${trainer.limitMs / 60_000} minutes.`,
+          xp: trainer.xp,
+          done,
+          href: '#/trainer',
+        };
+      }
+      case 'quiz':
+        return {
+          key,
+          title: 'Checkpoint quiz',
+          description: `${mod.quiz.draw} questions from a pool of ${mod.quiz.questions.length}. Pass with ${mod.quiz.pass}.`,
+          xp: mod.quiz.xp,
+          done,
+          href: `#/learn/${mod.id}/quiz`,
+        };
+      case 'practice':
+      case 'challenge': {
+        const lab = getLab(ref)!;
+        return {
+          key,
+          title: `${key === 'practice' ? 'Guided practice' : 'Challenge'}: ${lab.title}`,
+          description: lab.summary,
+          xp: lab.xp,
+          done,
+          href: `#/lab/${lab.id}`,
+        };
+      }
+    }
   });
-  const challenge = mod.challenge ? getLab(mod.challenge) : undefined;
-  if (challenge) {
-    steps.push({
-      key: 'challenge',
-      title: `Challenge: ${challenge.title}`,
-      description: challenge.summary,
-      xp: challenge.xp,
-      done: labDone(challenge.id),
-      href: `#/lab/${challenge.id}`,
-    });
-  }
-  return steps;
 }

@@ -14,7 +14,7 @@ export interface Me {
   level: LevelInfo;
   completions: { labId: string; xpAwarded: number; completedAt: string }[];
   moduleSteps: { moduleId: string; step: 'lesson' | 'trainer' | 'quiz'; xpAwarded: number; completedAt: string }[];
-  progress: { today: string; streak: Streak; week: Week };
+  progress: { today: string; streak: Streak; week: Week; badges: { id: string; earnedAt: string }[] };
 }
 
 export interface QuizStart {
@@ -32,6 +32,7 @@ export interface QuizResult {
   /** Only after a pass. */
   review: { id: string; answer: string; explanation: string }[] | null;
   level: LevelInfo;
+  newBadges: string[];
 }
 
 export interface TrainerBest {
@@ -55,6 +56,7 @@ export interface TrainerResult {
   xpAwarded: number;
   best: TrainerBest | null;
   level: LevelInfo;
+  newBadges: string[];
 }
 
 export interface Attempt {
@@ -69,6 +71,7 @@ export interface SubmitResult {
   xpAwarded: number;
   alreadyCompleted: boolean;
   level: LevelInfo;
+  newBadges: string[];
 }
 
 export interface Leaderboard {
@@ -79,6 +82,7 @@ export interface Leaderboard {
     xp: number;
     labs: number;
     streak: number;
+    badges: number;
     level: number;
     rank: string;
   }[];
@@ -127,7 +131,7 @@ export const api = {
   startRound: (kind: string) => call<{ roundId: number; problems: Problem[] }>('POST', `/api/trainer/${kind}/start`),
   finishRound: (roundId: number, answers: string[]) =>
     call<TrainerResult>('POST', `/api/trainer/rounds/${roundId}/finish`, { answers }),
-  lessonDone: (moduleId: string) => call<void>('POST', `/api/modules/${moduleId}/lesson`),
+  lessonDone: (moduleId: string) => call<{ newBadges: string[] }>('POST', `/api/modules/${moduleId}/lesson`),
   startQuiz: (moduleId: string) => call<QuizStart>('POST', `/api/modules/${moduleId}/quiz`),
   submitQuiz: (attemptId: number, answers: string[]) =>
     call<QuizResult>('POST', `/api/quiz/${attemptId}/submit`, { answers }),

@@ -2,6 +2,7 @@ import type { Lab, LevelInfo } from '@netlab/labs';
 import { ArrowRight, Check, CircleCheck, ListChecks, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { SubmitResult } from '../api.ts';
+import { NewBadges } from './NewBadges.tsx';
 
 export interface NextStep {
   href: string;
@@ -84,6 +85,8 @@ export function SubmitDialog({
             </li>
           ))}
         </ul>
+
+        <NewBadges ids={result.newBadges} />
 
         <p className="muted small">
           Submit sends your commands to the server, which replays them on a fresh copy of this

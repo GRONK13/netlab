@@ -3148,3 +3148,131 @@ input:disabled {
     font-size: 1.8rem;
   }
 }
+
+/* ---- progress: mastery and badges ---- */
+
+.mastery-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mastery-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 3rem;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.1rem;
+}
+
+.mastery-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.mastery-name {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.mastery-count {
+  text-align: right;
+}
+
+.mastery-soon {
+  grid-column: 2 / -1;
+  text-align: right;
+}
+
+.badge-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.badge-grid li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.badge-grid li.locked {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+
+.badge-grid li.locked .badge-mark {
+  background: var(--surface-3);
+  color: var(--text-3);
+}
+
+.badge-grid li.locked strong {
+  color: var(--text-2);
+}
+
+.badge-text {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.badge-state {
+  color: var(--text-3);
+}
+
+.badge-grid li.earned .badge-state {
+  color: var(--accent);
+}
+
+.badge-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.new-badges {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.new-badges li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.new-badges .badge-mark {
+  width: 28px;
+  height: 28px;
+}
+
+.new-badges a {
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .mastery-list li {
+    grid-template-columns: minmax(0, 1fr) 3rem;
+  }
+
+  .mastery-list .leds,
+  .mastery-soon {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: left;
+  }
+}

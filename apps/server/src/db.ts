@@ -149,6 +149,15 @@ const MIGRATIONS: string[] = [
     ) work
     on conflict do nothing;
   `,
+  `
+  -- Cosmetic badges, kept once earned. The rules live in @netlab/modules.
+  create table badges (
+    user_id integer not null references users(id) on delete cascade,
+    badge_id text not null,
+    earned_at timestamptz not null default now(),
+    primary key (user_id, badge_id)
+  );
+  `,
 ];
 
 export async function migrate(db: Db): Promise<number> {
