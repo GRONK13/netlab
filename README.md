@@ -29,7 +29,7 @@ npm run typecheck
 npm run e2e        # build, then browser smoke tests (first time: npx playwright install chromium)
 ```
 
-Open http://localhost:5173 and create an account. Locally, any email can register unless `ALLOWED_EMAIL_DOMAIN` is set.
+Open http://localhost:5173 and create an account. Locally, email sign-up stays open (any email, unless `ALLOWED_EMAIL_DOMAIN` is set), so you don't need Google or GitHub keys to develop.
 
 ## Add a lab
 
@@ -83,6 +83,21 @@ Then add the cron jobs (auto-deploy, and pm2 restart after a server reboot):
 ```bash
 (crontab -l 2>/dev/null; echo "*/2 * * * * $HOME/netlab.dcism.org/scripts/deploy.sh"; echo "@reboot $(command -v pm2) resurrect") | crontab -
 ```
+
+## Sign in with Google and GitHub
+
+New accounts sign up with Google or GitHub; existing email-and-password accounts keep working. A provider appears on the sign-in page once both of its values are in `.env`, and email sign-up closes at the same time (NetLab can't send verification or password-reset emails).
+
+**Google** ([Google Cloud Console](https://console.cloud.google.com/)):
+1. Create a project, then open **APIs & Services → OAuth consent screen**. Choose **External**, app name "NetLab", your support email, and only the `openid`, `email` and `profile` scopes. Publish the app.
+2. **Credentials → Create credentials → OAuth client ID → Web application**, with the authorized redirect URI `https://netlab.dcism.org/api/auth/google/callback`.
+3. Put the client ID and secret in `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+**GitHub** (**Settings → Developer settings → OAuth Apps → New OAuth App**):
+1. Homepage URL `https://netlab.dcism.org`, authorization callback URL `https://netlab.dcism.org/api/auth/github/callback`.
+2. Generate a client secret, and put both values in `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
+
+Then restart: `pm2 restart netlab --update-env`. Secrets live only in the server's `.env`, never in git.
 
 ## Backups
 

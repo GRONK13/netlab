@@ -8,6 +8,7 @@ import { buildApp } from '../src/app.ts';
 import { loadConfig } from '../src/config.ts';
 import { connect, manilaDay, migrate, type Db } from '../src/db.ts';
 import { backfillBadges } from '../src/progress.ts';
+import { githubIdentity, googleIdentity, type Identity, type OAuthProvider } from '../src/oauth.ts';
 
 let db: Db;
 let app: FastifyInstance;
@@ -508,5 +509,206 @@ describe('badges', () => {
       badges: 4,
       streak: 1,
     });
+  });
+});
+
+describe('sign in with Google or GitHub', () => {
+  let oapp: FastifyInstance;
+  // What the fake provider says signed in, by authorization code.
+  const identities = new Map<string, Identity>();
+  const fake: OAuthProvider = {
+    label: 'Fake',
+    authorizeUrl: (state) => new URL(`https://provider.example/authorize?state=${state}`),
+    identity: async (code) => {
+      const who = identities.get(code);
+      if (!who) throw new Error('bad code');
+      return who;
+    },
+  };
+  const remoteAddress = '10.0.0.4';
+
+  beforeAll(async () => {
+    const config = { ...loadConfig({}), emailSignup: false, authPerMinute: 100, webDist: '/nonexistent' };
+    oapp = await buildApp(db, config, { providers: { fake } });
+  });
+  afterAll(() => oapp.close());
+
+  type Res = { cookies: { name: string; value: string }[] };
+  const cookieHeader = (res: Res, only?: string) =>
+    res.cookies
+      .filter((c) => !only || c.name === only)
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+  const session = (res: Res) => {
+    const c = res.cookies.find((x) => x.name === 'netlab_sid' && x.value);
+    return c ? `netlab_sid=${c.value}` : '';
+  };
+  const meWith = (cookie: string) => oapp.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
+
+  /** Starts a sign-in, then comes back from the provider with `code`. */
+  async function signIn(code: string, state?: string) {
+    const start = await oapp.inject({ method: 'GET', url: '/api/auth/fake/start', remoteAddress });
+    expect(start.statusCode).toBe(302);
+    const real = new URL(start.headers.location as string).searchParams.get('state')!;
+    return oapp.inject({
+      method: 'GET',
+      url: `/api/auth/fake/callback?code=${code}&state=${state ?? real}`,
+      headers: { cookie: cookieHeader(start) },
+      remoteAddress,
+    });
+  }
+
+  it('lists only the configured providers, and says email sign-up is closed', async () => {
+    const res = await oapp.inject({ method: 'GET', url: '/api/auth/providers' });
+    expect(res.json()).toEqual({ providers: [{ id: 'fake', label: 'Fake' }], emailSignup: false });
+    expect((await oapp.inject({ method: 'GET', url: '/api/auth/nope/start', remoteAddress })).statusCode).toBe(404);
+  });
+
+  it('sends the browser to the provider with the state and verifier in short-lived cookies', async () => {
+    const start = await oapp.inject({ method: 'GET', url: '/api/auth/fake/start', remoteAddress });
+    expect(start.headers.location).toMatch(/^https:\/\/provider\.example\/authorize\?state=/);
+    expect(start.cookies.map((c) => c.name).sort()).toEqual(['netlab_oauth_state', 'netlab_oauth_verifier']);
+    for (const c of start.cookies) {
+      expect(c).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/api/auth', maxAge: 600 });
+    }
+  });
+
+  it("refuses a callback whose state doesn't match, or that was cancelled or failed", async () => {
+    identities.set('mallory', { subject: 'm1', email: 'mallory@example.com', name: 'Mallory' });
+    const forged = await signIn('mallory', 'forged');
+    expect(forged.statusCode).toBe(302);
+    expect(forged.headers.location).toBe('/#/signin?error=expired');
+    expect(session(forged)).toBe('');
+    const noCookies = await oapp.inject({
+      method: 'GET',
+      url: '/api/auth/fake/callback?code=mallory&state=x',
+      remoteAddress,
+    });
+    expect(noCookies.headers.location).toBe('/#/signin?error=expired');
+    const cancelled = await oapp.inject({
+      method: 'GET',
+      url: '/api/auth/fake/callback?error=access_denied&state=x',
+      remoteAddress,
+    });
+    expect(cancelled.headers.location).toBe('/#/signin?error=cancelled');
+    expect((await signIn('unknown-code')).headers.location).toBe('/#/signin?error=failed');
+  });
+
+  it('refuses an identity without a verified email', async () => {
+    identities.set('noemail', { subject: 'n1', email: null, name: 'No Email' });
+    const res = await signIn('noemail');
+    expect(res.headers.location).toBe('/#/signin?error=no-email');
+    expect(session(res)).toBe('');
+  });
+
+  it('asks a new person for a display name, then creates the account once', async () => {
+    identities.set('newbie', { subject: 'g-42', email: 'newbie@gmail.com', name: 'Nora Newbie' });
+    const res = await signIn('newbie');
+    expect(res.headers.location).toBe('/#/welcome');
+    expect(session(res)).toBe('');
+    const signup = cookieHeader(res, 'netlab_signup');
+
+    const pending = await oapp.inject({ method: 'GET', url: '/api/auth/pending', headers: { cookie: signup } });
+    expect(pending.json()).toEqual({ email: 'newbie@gmail.com', suggestedName: 'Nora Newbie', provider: 'Fake' });
+
+    const complete = (displayName: string) =>
+      oapp.inject({
+        method: 'POST',
+        url: '/api/auth/complete',
+        headers: { cookie: signup },
+        payload: { displayName },
+        remoteAddress,
+      });
+    expect((await complete('N')).statusCode).toBe(400);
+    const done = await complete('Nora');
+    expect(done.statusCode).toBe(201);
+    expect(done.json().user).toMatchObject({ email: 'newbie@gmail.com', displayName: 'Nora' });
+    expect((await meWith(session(done))).json().user.displayName).toBe('Nora');
+    // The pending sign-up is used up.
+    expect((await complete('Nora again')).statusCode).toBe(404);
+
+    // Next time, the same identity signs straight in.
+    const again = await signIn('newbie');
+    expect(again.headers.location).toBe('/#/');
+    expect((await meWith(session(again))).json().user.email).toBe('newbie@gmail.com');
+  });
+
+  const passwordLogin = (email: string) =>
+    oapp.inject({ method: 'POST', url: '/api/auth/login', remoteAddress, payload: { email, password: 'correct horse' } });
+
+  it('links a verified email to the existing account, keeping its XP but ending its password', async () => {
+    const before = session(await passwordLogin('carol@school.edu'));
+    expect((await meWith(before)).statusCode).toBe(200);
+
+    identities.set('carol', { subject: 'gh-7', email: 'carol@school.edu', name: 'Carol C' });
+    const res = await signIn('carol');
+    expect(res.headers.location).toBe('/#/');
+    const me = (await meWith(session(res))).json();
+    expect(me.user.displayName).toBe('Carol');
+    expect(me.level.xp).toBe(135);
+
+    // Whoever set the unverified password can't get back in, by password or old session.
+    expect((await passwordLogin('carol@school.edu')).statusCode).toBe(401);
+    expect((await meWith(before)).statusCode).toBe(401);
+  });
+
+  it('expires a pending sign-up after 15 minutes', async () => {
+    identities.set('slow', { subject: 's-1', email: 'slow@gmail.com', name: 'Slow' });
+    const signup = cookieHeader(await signIn('slow'), 'netlab_signup');
+    await db.query(`update pending_signups set expires_at = now() - interval '1 minute' where email = 'slow@gmail.com'`);
+    const res = await oapp.inject({ method: 'GET', url: '/api/auth/pending', headers: { cookie: signup } });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('closes email sign-up, while existing email accounts still sign in', async () => {
+    const reg = await oapp.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      remoteAddress,
+      payload: { email: 'late@school.edu', password: 'correct horse', displayName: 'Late' },
+    });
+    expect(reg.statusCode).toBe(403);
+    expect((await passwordLogin('dave@school.edu')).statusCode).toBe(200);
+    // A Google or GitHub account has no password to match.
+    expect((await passwordLogin('newbie@gmail.com')).statusCode).toBe(401);
+  });
+});
+
+describe('provider identities', () => {
+  it('takes only a verified Google email', () => {
+    expect(googleIdentity({ sub: '1', email: 'A@Gmail.com', email_verified: true, name: 'A' })).toEqual({
+      subject: '1',
+      email: 'a@gmail.com',
+      name: 'A',
+    });
+    expect(googleIdentity({ sub: '1', email: 'a@gmail.com', email_verified: false }).email).toBeNull();
+  });
+
+  it("uses GitHub's primary verified email, and the login when there's no name", () => {
+    const emails = [
+      { email: 'old@x.com', primary: false, verified: true },
+      { email: 'Main@X.com', primary: true, verified: true },
+    ];
+    expect(githubIdentity({ id: 9, login: 'octo', name: null }, emails)).toEqual({
+      subject: '9',
+      email: 'main@x.com',
+      name: 'octo',
+    });
+    const unverified = [{ email: 'm@x.com', primary: true, verified: false }];
+    expect(githubIdentity({ id: 9, login: 'octo', name: 'Oct' }, unverified).email).toBeNull();
+  });
+
+  it('keeps email sign-up open until a provider is configured, unless told otherwise', () => {
+    expect(loadConfig({}).emailSignup).toBe(true);
+    expect(loadConfig({ NODE_ENV: 'production' }).emailSignup).toBe(true);
+    const keys = { NODE_ENV: 'production', GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' };
+    // Without PUBLIC_URL, production can't build a redirect address, so Google stays off.
+    expect(loadConfig(keys).google).toBeUndefined();
+    expect(loadConfig(keys).emailSignup).toBe(true);
+    const ready = { ...keys, PUBLIC_URL: 'https://netlab.example/' };
+    expect(loadConfig(ready).publicUrl).toBe('https://netlab.example');
+    expect(loadConfig(ready).emailSignup).toBe(false);
+    expect(loadConfig({ ...ready, EMAIL_SIGNUP: '1' }).emailSignup).toBe(true);
+    expect(loadConfig({ GITHUB_CLIENT_ID: 'id' }).github).toBeUndefined();
   });
 });

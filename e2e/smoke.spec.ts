@@ -14,7 +14,7 @@ async function register(page: Page, name: string) {
   await page.goto('/');
   await page.getByRole('tab', { name: 'Create account' }).click();
   await page.getByLabel('Display name').fill(name);
-  await page.getByLabel('School email').fill(`${name.toLowerCase()}@usc.edu.ph`);
+  await page.getByLabel('Email').fill(`${name.toLowerCase()}@usc.edu.ph`);
   await page.getByLabel('Password').fill(`e2e-password-${stamp}`);
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('heading', { name: `Hello, ${name}.` })).toBeVisible();
@@ -22,6 +22,27 @@ async function register(page: Page, name: string) {
 
 const nav = (page: Page, name: string) =>
   page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name });
+
+test('a new student signs up with a provider and chooses a display name', async ({ page, request }) => {
+  const identity = { subject: `sub-${stamp}`, email: `ollie${stamp}@gmail.com`, name: 'Ollie Auth' };
+  await request.post('/e2e/identity', { data: identity });
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Continue with TestID' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Welcome to NetLab' })).toBeVisible();
+  await expect(page.getByText(identity.email)).toBeVisible();
+  const name = page.getByLabel('Your name on the leaderboard');
+  await expect(name).toHaveValue('Ollie Auth');
+  await name.fill(`Ollie${stamp}`);
+  await page.getByRole('button', { name: 'Create my account' }).click();
+  await expect(page.getByRole('heading', { name: `Hello, Ollie${stamp}.` })).toBeVisible();
+
+  // Next time, the same identity goes straight to the dashboard.
+  await page.getByTitle('Sign out').click();
+  await request.post('/e2e/identity', { data: identity });
+  await page.getByRole('link', { name: 'Continue with TestID' }).click();
+  await expect(page.getByRole('heading', { name: `Hello, Ollie${stamp}.` })).toBeVisible();
+});
 
 test('health check responds', async ({ request }) => {
   const res = await request.get('/api/health');

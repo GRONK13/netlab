@@ -158,6 +158,28 @@ const MIGRATIONS: string[] = [
     primary key (user_id, badge_id)
   );
   `,
+  `
+  -- Public sign-in with Google and GitHub. Their accounts have no password.
+  alter table users alter column password_hash drop not null;
+  alter table users add column hidden boolean not null default false;
+  create table oauth_accounts (
+    provider text not null,
+    subject text not null,
+    user_id integer not null references users(id) on delete cascade,
+    created_at timestamptz not null default now(),
+    primary key (provider, subject)
+  );
+  create index oauth_accounts_user_idx on oauth_accounts(user_id);
+  -- A first sign-in waiting for the student to choose a display name.
+  create table pending_signups (
+    token_hash text primary key,
+    provider text not null,
+    subject text not null,
+    email text not null,
+    suggested_name text not null,
+    expires_at timestamptz not null
+  );
+  `,
 ];
 
 export async function migrate(db: Db): Promise<number> {

@@ -4,8 +4,11 @@ import { connect, migrate } from './db.ts';
 import { backfillBadges } from './progress.ts';
 
 const config = loadConfig();
-if (config.allowedEmailDomains.length === 0) {
+if (config.emailSignup && config.allowedEmailDomains.length === 0) {
   console.warn('ALLOWED_EMAIL_DOMAIN is not set: anyone with any email can register.');
+}
+if (config.production && !process.env.PUBLIC_URL && (process.env.GOOGLE_CLIENT_ID || process.env.GITHUB_CLIENT_ID)) {
+  console.warn('Google/GitHub sign-in is off: set PUBLIC_URL (e.g. https://netlab.dcism.org) in .env.');
 }
 
 const db = await connect(config.databaseUrl, config.pgliteDir);

@@ -7,12 +7,14 @@ import { AuthPage } from './pages/AuthPage.tsx';
 import { Dashboard } from './pages/Dashboard.tsx';
 import { LabPage } from './pages/LabPage.tsx';
 import { LeaderboardPage } from './pages/LeaderboardPage.tsx';
+import { PrivacyPage } from './pages/PrivacyPage.tsx';
 import { ProgressPage } from './pages/ProgressPage.tsx';
 import { SandboxPage } from './pages/SandboxPage.tsx';
 import { TrainerPage } from './pages/TrainerPage.tsx';
 import { LessonPage } from './pages/LessonPage.tsx';
 import { ModulePage } from './pages/ModulePage.tsx';
 import { QuizPage } from './pages/QuizPage.tsx';
+import { WelcomePage } from './pages/WelcomePage.tsx';
 
 type Route =
   | { page: 'home' }
@@ -20,6 +22,8 @@ type Route =
   | { page: 'sandbox' }
   | { page: 'trainer' }
   | { page: 'progress' }
+  | { page: 'privacy' }
+  | { page: 'welcome' }
   | { page: 'module' | 'lesson' | 'quiz'; id: string }
   | { page: 'leaderboard' };
 
@@ -29,6 +33,8 @@ function parseHash(hash: string): Route {
   if (hash === '#/sandbox') return { page: 'sandbox' };
   if (hash === '#/trainer') return { page: 'trainer' };
   if (hash === '#/progress') return { page: 'progress' };
+  if (hash === '#/privacy') return { page: 'privacy' };
+  if (hash === '#/welcome') return { page: 'welcome' };
   const learn = /^#\/learn\/([\w-]+)(?:\/(lesson|quiz))?$/.exec(hash);
   if (learn) return { page: learn[2] === 'lesson' ? 'lesson' : learn[2] === 'quiz' ? 'quiz' : 'module', id: learn[1]! };
   if (hash === '#/leaderboard') return { page: 'leaderboard' };
@@ -75,7 +81,11 @@ export function App() {
       </div>
     );
   }
-  if (status === 'signed-out' || !me) return <AuthPage onSignedIn={refresh} />;
+  if (status === 'signed-out' || !me) {
+    if (route.page === 'privacy') return <PrivacyPage signedIn={false} />;
+    if (route.page === 'welcome') return <WelcomePage onSignedIn={refresh} />;
+    return <AuthPage onSignedIn={refresh} />;
+  }
 
   const signOut = async () => {
     await api.logout();
@@ -128,7 +138,7 @@ export function App() {
         </div>
       </aside>
       <main className="main">
-        {route.page === 'home' && <Dashboard me={me} />}
+        {(route.page === 'home' || route.page === 'welcome') && <Dashboard me={me} />}
         {route.page === 'lab' && <LabPage key={route.id} labId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'sandbox' && <SandboxPage />}
         {route.page === 'trainer' && <TrainerPage onProgress={refresh} />}
@@ -137,6 +147,7 @@ export function App() {
         {route.page === 'lesson' && <LessonPage key={route.id} moduleId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'quiz' && <QuizPage key={route.id} moduleId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'leaderboard' && <LeaderboardPage me={me} />}
+        {route.page === 'privacy' && <PrivacyPage signedIn />}
       </main>
     </div>
   );

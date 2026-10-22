@@ -17,10 +17,16 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'node apps/server/src/index.ts',
+    // The real app plus a stand-in sign-in provider (see e2e/test-server.ts).
+    command: 'node e2e/test-server.ts',
     url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,
     // Every test registers a student from the same address, so allow more than production's 10 a minute.
-    env: { PORT: String(PORT), PGLITE_DIR: '.data/e2e-pglite', ALLOWED_EMAIL_DOMAIN: 'usc.edu.ph', AUTH_RATE_LIMIT: '100' },
+    env: {
+      PORT: String(PORT),
+      PUBLIC_URL: `http://127.0.0.1:${PORT}`,
+      ALLOWED_EMAIL_DOMAIN: 'usc.edu.ph',
+      AUTH_RATE_LIMIT: '100',
+    },
   },
 });

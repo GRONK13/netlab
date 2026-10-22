@@ -8,6 +8,7 @@ import { authRoutes, loadUser } from './auth.ts';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
 import { moduleRoutes } from './modules.ts';
+import { oauthRoutes, providersFrom, type OAuthProvider } from './oauth.ts';
 import { progressRoutes } from './progress.ts';
 import { apiRoutes } from './routes.ts';
 import { trainerRoutes } from './trainer.ts';
@@ -29,7 +30,12 @@ const SECURITY_HEADERS = {
     "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 };
 
-export async function buildApp(db: Db, config: Config): Promise<FastifyInstance> {
+export interface AppOptions {
+  /** Sign-in providers; the configured Google and GitHub apps unless given (tests pass fakes). */
+  providers?: Record<string, OAuthProvider>;
+}
+
+export async function buildApp(db: Db, config: Config, options: AppOptions = {}): Promise<FastifyInstance> {
   // Apache sits in front on the school server, so trust its X-Forwarded-* headers.
   const app = Fastify({ trustProxy: true, bodyLimit: 2 * 1024 * 1024, logger: config.production });
 
@@ -54,6 +60,7 @@ export async function buildApp(db: Db, config: Config): Promise<FastifyInstance>
   });
 
   authRoutes(app, db, config);
+  oauthRoutes(app, db, config, options.providers ?? providersFrom(config));
   apiRoutes(app, db);
   trainerRoutes(app, db);
   moduleRoutes(app, db);

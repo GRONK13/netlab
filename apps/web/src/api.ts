@@ -17,6 +17,17 @@ export interface Me {
   progress: { today: string; streak: Streak; week: Week; badges: { id: string; earnedAt: string }[] };
 }
 
+export interface Providers {
+  providers: { id: string; label: string }[];
+  emailSignup: boolean;
+}
+
+export interface PendingSignup {
+  email: string;
+  suggestedName: string;
+  provider: string;
+}
+
 export interface QuizStart {
   attemptId: number;
   questions: Question[];
@@ -118,6 +129,9 @@ export const api = {
     call<{ user: User }>('POST', '/api/auth/register', { email, password, displayName }),
   login: (email: string, password: string) => call<{ user: User }>('POST', '/api/auth/login', { email, password }),
   logout: () => call<void>('POST', '/api/auth/logout'),
+  providers: () => call<Providers>('GET', '/api/auth/providers'),
+  pendingSignup: () => call<PendingSignup>('GET', '/api/auth/pending'),
+  completeSignup: (displayName: string) => call<{ user: User }>('POST', '/api/auth/complete', { displayName }),
   attempt: (labId: string) => call<Attempt>('GET', `/api/labs/${labId}/attempt`),
   saveAttempt: (labId: string, log: LogEntry[], keepalive = false) =>
     call<void>('PUT', `/api/labs/${labId}/attempt`, { log }, keepalive),

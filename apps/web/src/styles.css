@@ -3276,3 +3276,112 @@ input:disabled {
     text-align: left;
   }
 }
+
+/* ---- public sign-in: providers, welcome, privacy ---- */
+
+.auth-intro {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.auth-intro h1,
+.auth-intro h2 {
+  font-size: 1.25rem;
+}
+
+.provider-buttons {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.btn.provider {
+  height: 42px;
+  gap: 0.6rem;
+}
+
+/* Google's button guidelines: white with the standard four-colour G. */
+.btn.provider.google {
+  background: #ffffff;
+  color: #1f1f1f;
+  border-color: #747775;
+}
+
+.btn.provider.github {
+  background: #24292f;
+  color: #ffffff;
+  border-color: #24292f;
+}
+
+.btn.provider.github:hover {
+  background: #1b1f23;
+}
+
+.auth-card a:not(.btn) {
+  color: var(--accent);
+}
+
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-3);
+  font-size: 0.8rem;
+}
+
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+.center-page {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.auth-card.welcome {
+  width: min(28rem, 100%);
+}
+
+.auth-card.welcome h1 {
+  font-size: 1.5rem;
+}
+
+.page.standalone {
+  max-width: 760px;
+}
+
+.prose {
+  padding: 1.5rem 1.75rem;
+  display: grid;
+  gap: 0.6rem;
+  line-height: 1.6;
+}
+
+.prose h2 {
+  font-size: 1.05rem;
+  margin-top: 0.75rem;
+}
+
+.prose h2:first-child {
+  margin-top: 0;
+}
+
+.prose p,
+.prose ul {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.prose ul {
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.prose a {
+  color: var(--accent);
+}

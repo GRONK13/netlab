@@ -9,6 +9,15 @@
         "process.env.PORT = '3001'; require('node:child_process').spawn('npm', ['run', 'dev'], { stdio: 'inherit', shell: true }).on('exit', (c) => process.exit(c ?? 0));"
       ],
       "port": 5173
+    },
+    {
+      "name": "netlab-signin-test",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "Object.assign(process.env, { PORT: '3299', PUBLIC_URL: 'http://localhost:3299', GOOGLE_CLIENT_ID: 'preview', GOOGLE_CLIENT_SECRET: 'preview', GITHUB_CLIENT_ID: 'preview', GITHUB_CLIENT_SECRET: 'preview' }); require('node:child_process').spawn('node', ['e2e/test-server.ts'], { stdio: 'inherit' }).on('exit', (c) => process.exit(c ?? 0));"
+      ],
+      "port": 3299
     }
   ]
 }
