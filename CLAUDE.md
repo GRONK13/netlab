@@ -38,8 +38,8 @@ Detail and dates are in Obsidian `05 Roadmap`; this is the short version. Tick i
 - [x] Module 3, Inter-VLAN Routing: lesson, guided practice, quiz, challenge (2026-10-21)
 - [x] Module 4, Device Security: lesson, guided practice, quiz, challenge (2026-10-21)
 - [x] Streaks and a weekly goal of practice days, Progress page (2026-10-22)
-- [ ] Badges and mastery per CCNA domain (next)
-- [ ] Phase 2: static routing, DHCP, ACLs, NAT
+- [x] Badges and mastery per CCNA domain (2026-10-22)
+- [ ] Phase 2: static routing, DHCP, ACLs, NAT (next)
 
 ## Skills
 Before starting a roadmap item, check `10 Skills Playbook` in the same folder for the skills to load. Always run `/code-review` before asking to push, and `/security-review` when a change touches sign-in, API routes or the database.

@@ -36,8 +36,8 @@ Decided with the project owner on 2026-10-21:
   - lab completions;
   - module steps;
   - trainer rounds and quizzes with at least one correct answer.
-- **FR-009 Badges** (push 2). When a student meets a badge's rule, the server shall award the badge once and keep it.
-- **FR-010 Mastery** (push 2). The system shall show, for each of the six CCNA domains, how many of its module steps and graded labs the student has completed. A domain with no content yet shall show "Coming soon".
+- **FR-009 Badges.** When a graded event meets a badge's rule, the server shall award the badge once, keep it, and return it in that event's response. At startup, the server shall award badges earned before they existed or under rules added since.
+- **FR-010 Mastery.** The system shall show, for each of the six CCNA domains, how many of its module steps and graded labs the student has completed. A domain with no content yet shall show "Coming soon".
 
 ## Non-functional requirements
 
@@ -65,11 +65,11 @@ Decided with the project owner on 2026-10-21:
 - [x] Dashboard Streak and This week stats, Progress page, leaderboard Streak column
 - [x] API and browser tests
 
-### Push 2: badges and mastery
+### Push 2: badges and mastery (shipped 2026-10-22, `b9b96bc`)
 
-- [ ] Shared module steps, `masteryByDomain`, `BADGES` and `earnedBadges`
-- [ ] Migration 6: `badges`, award on events and on `/api/me`, `newBadges` in responses
-- [ ] Badge notices, Progress page badges grid and mastery meters, leaderboard Badges column
+- [x] Shared module steps, `masteryByDomain`, `BADGES` and `earnedBadges`
+- [x] Migration 6: `badges`, awarded on graded events (`newBadges` in responses) and by a startup backfill; `/api/me` only reads
+- [x] Badge notices, Progress page badges grid and mastery meters, leaderboard Badges column
 
 ## Out of scope
 
