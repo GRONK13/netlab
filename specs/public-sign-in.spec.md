@@ -58,7 +58,7 @@ Decided with the project owner on 2026-10-22:
 
 ## Implementation TODO
 
-### Push 1: public sign-in
+### Push 1: public sign-in (shipped 2026-10-22, `2fd62c0`)
 
 - [x] Migration 7: nullable `password_hash`, `users.hidden`, `oauth_accounts`, `pending_signups`
 - [x] `oauth.ts`: Google and GitHub through arctic; providers, start, callback, pending and complete endpoints

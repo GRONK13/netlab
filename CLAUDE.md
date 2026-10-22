@@ -8,7 +8,7 @@ Packet Tracer-style Cisco IOS practice labs in the browser, live at https://netl
 - `packages/modules`: learning modules (lessons, quiz pools, the subnetting trainer). Quiz answer keys live in `src/answers/`, exported only as `@netlab/modules/answers` for the server; a test fails if `apps/web` imports them.
 - `apps/server`: Fastify API, plain SQL migrations in `src/db.ts` (append only). XP comes from the `xp_events` view.
 - `apps/web`: React + Vite UI. Design system in `src/styles.css` ("patch panel": paper/ink, one orange accent, IBM Plex).
-- `e2e/`: Playwright browser tests (CI gates deploys on them). `scripts/`: deploy, nightly backup, restore check. `specs/`: feature specs.
+- `e2e/`: Playwright browser tests (CI gates deploys on them), run against `e2e/test-server.ts` (the real app plus a stand-in sign-in provider, fresh in-memory database). `scripts/`: deploy, nightly backup, restore check. `specs/`: feature specs.
 
 ## Commands
 - `npm run dev`: API on :3001 (PGlite) + web on :5173
@@ -39,7 +39,9 @@ Detail and dates are in Obsidian `05 Roadmap`; this is the short version. Tick i
 - [x] Module 4, Device Security: lesson, guided practice, quiz, challenge (2026-10-21)
 - [x] Streaks and a weekly goal of practice days, Progress page (2026-10-22)
 - [x] Badges and mastery per CCNA domain (2026-10-22)
-- [ ] Phase 2: static routing, DHCP, ACLs, NAT (next)
+- [x] Public sign-in with Google and GitHub, welcome step, privacy page (2026-10-22; live once the keys are in the server's `.env`)
+- [ ] Accounts and moderation: rename, delete account, USC leaderboard filter, admin script (next)
+- [ ] Phase 2: static routing, DHCP, ACLs, NAT (plan approved, paused)
 
 ## Skills
 Before starting a roadmap item, check `10 Skills Playbook` in the same folder for the skills to load. Always run `/code-review` before asking to push, and `/security-review` when a change touches sign-in, API routes or the database.
