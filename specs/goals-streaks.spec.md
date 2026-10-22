@@ -56,7 +56,7 @@ Decided with the project owner on 2026-10-21:
 
 ## Implementation TODO
 
-### Push 1: streaks and weekly goal
+### Push 1: streaks and weekly goal (shipped 2026-10-22, `b73f91d`)
 
 - [x] `days`, `streakOf`, `weekOf` with unit tests (`packages/modules/src/progress/`)
 - [x] Migration 5: `practice_days`, `goal_weeks`, `users.weekly_goal`, backfill

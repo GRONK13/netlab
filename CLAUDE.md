@@ -37,7 +37,8 @@ Detail and dates are in Obsidian `05 Roadmap`; this is the short version. Tick i
 - [x] Module 2, Switching and VLANs: lesson, guided practice, quiz, challenge (2026-10-21)
 - [x] Module 3, Inter-VLAN Routing: lesson, guided practice, quiz, challenge (2026-10-21)
 - [x] Module 4, Device Security: lesson, guided practice, quiz, challenge (2026-10-21)
-- [ ] Goals, streaks, badges, mastery per CCNA domain (next)
+- [x] Streaks and a weekly goal of practice days, Progress page (2026-10-22)
+- [ ] Badges and mastery per CCNA domain (next)
 - [ ] Phase 2: static routing, DHCP, ACLs, NAT
 
 ## Skills
