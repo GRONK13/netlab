@@ -5,9 +5,10 @@
 import { randomBytes } from 'node:crypto';
 import * as arctic from 'arctic';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { displayNameProblem, sha256, startSession, toUser, type UserRow } from './auth.ts';
+import { sha256, startSession, toUser, type UserRow } from './auth.ts';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
+import { displayNameProblem } from './names.ts';
 
 /** Who the provider says signed in. `email` is null unless the provider has verified it. */
 export interface Identity {

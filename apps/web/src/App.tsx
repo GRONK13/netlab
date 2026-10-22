@@ -146,7 +146,7 @@ export function App() {
         {route.page === 'module' && <ModulePage key={route.id} moduleId={route.id} me={me} />}
         {route.page === 'lesson' && <LessonPage key={route.id} moduleId={route.id} me={me} onProgress={refresh} />}
         {route.page === 'quiz' && <QuizPage key={route.id} moduleId={route.id} me={me} onProgress={refresh} />}
-        {route.page === 'leaderboard' && <LeaderboardPage me={me} />}
+        {route.page === 'leaderboard' && <LeaderboardPage />}
         {route.page === 'privacy' && <PrivacyPage signedIn />}
       </main>
     </div>

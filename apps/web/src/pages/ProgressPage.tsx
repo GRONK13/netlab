@@ -1,6 +1,7 @@
 import { BADGES, GOAL_MAX, GOAL_MIN, masteryByDomain } from '@netlab/modules';
 import { useState } from 'react';
 import { api, type Me } from '../api.ts';
+import { AccountPanel } from '../components/AccountPanel.tsx';
 import { BadgeIcon } from '../components/BadgeIcon.tsx';
 import { LedMeter } from '../components/LevelCard.tsx';
 import { WeekStrip } from '../components/WeekStrip.tsx';
@@ -150,6 +151,16 @@ export function ProgressPage({ me, onProgress }: { me: Me; onProgress: () => Pro
           })}
         </ul>
         <p className="muted small">Badges are for show: they don't add XP.</p>
+      </section>
+
+      <section>
+        <div className="section-head">
+          <h2>Account</h2>
+          <a href="#/privacy" className="mono muted small">
+            How NetLab uses your data
+          </a>
+        </div>
+        <AccountPanel me={me} onProgress={onProgress} />
       </section>
     </div>
   );

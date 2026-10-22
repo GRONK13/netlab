@@ -1,8 +1,10 @@
 import { getLab, LABS, levelFor, MAX_HINTS, xpAward } from '@netlab/labs';
 import { evaluateAll, Network, type LogEntry, type NetworkSnapshot } from '@netlab/sim';
 import type { FastifyInstance } from 'fastify';
-import { requireUser } from './auth.ts';
+import { requireUser, SESSION_COOKIE } from './auth.ts';
+import type { Config } from './config.ts';
 import type { Db } from './db.ts';
+import { displayNameProblem } from './names.ts';
 import { badgeCounts, progressFor, recordPractice, streaksFor, syncBadges } from './progress.ts';
 
 export const MAX_LOG = 5000;
@@ -44,10 +46,16 @@ async function saveLog(db: Db, userId: number, labId: string, log: LogEntry[]): 
   );
 }
 
-export function apiRoutes(app: FastifyInstance, db: Db): void {
+export function apiRoutes(app: FastifyInstance, db: Db, config: Config): void {
   app.get('/api/me', async (req, reply) => {
     const user = requireUser(req, reply);
     if (!user) return;
+    const [ways] = await db.query<{ providers: string[] | null; password: boolean }>(
+      `select array(select provider from oauth_accounts where user_id = u.id order by provider) as providers,
+              u.password_hash is not null as password
+       from users u where u.id = $1`,
+      [user.id],
+    );
     const completions = await db.query<{ lab_id: string; xp_awarded: number; completed_at: string }>(
       'select lab_id, xp_awarded, completed_at from completions where user_id = $1',
       [user.id],
@@ -60,6 +68,8 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
       user,
       level: levelFor(await totalXp(db, user.id)),
       progress: await progressFor(db, user.id),
+      // How this account signs in: 'google', 'github', and/or 'password'.
+      signIn: [...(ways?.providers ?? []), ...(ways?.password ? ['password'] : [])],
       completions: completions.map((c) => ({ labId: c.lab_id, xpAwarded: c.xp_awarded, completedAt: c.completed_at })),
       moduleSteps: steps.map((s) => ({
         moduleId: s.module_id,
@@ -69,6 +79,51 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
       })),
     };
   });
+
+  app.put<{ Body: { displayName: string } }>(
+    '/api/me/name',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['displayName'],
+          additionalProperties: false,
+          properties: { displayName: { type: 'string', maxLength: 40 } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const user = requireUser(req, reply);
+      if (!user) return;
+      const displayName = req.body.displayName.trim();
+      const problem = displayNameProblem(displayName);
+      if (problem) return reply.code(400).send({ error: problem });
+      await db.query('update users set display_name = $2 where id = $1', [user.id, displayName]);
+      return { user: { ...user, displayName } };
+    },
+  );
+
+  // Erases the account and, through the foreign keys, everything that belongs to it.
+  app.delete<{ Body: { confirm: string } }>(
+    '/api/me',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['confirm'],
+          additionalProperties: false,
+          properties: { confirm: { type: 'string', const: 'delete' } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const user = requireUser(req, reply);
+      if (!user) return;
+      await db.query('delete from users where id = $1', [user.id]);
+      reply.clearCookie(SESSION_COOKIE, { path: '/' });
+      return reply.code(204).send();
+    },
+  );
 
   app.get<{ Params: { id: string } }>('/api/labs/:id/attempt', async (req, reply) => {
     const user = requireUser(req, reply);
@@ -176,32 +231,41 @@ export function apiRoutes(app: FastifyInstance, db: Db): void {
     },
   );
 
-  app.get('/api/leaderboard', async (req, reply) => {
-    if (!requireUser(req, reply)) return;
-    // XP counts every source; "labs" counts only the graded labs.
-    const rows = await db.query<{ id: number; display_name: string; xp: number; labs: number }>(
-      `select u.id, u.display_name, sum(e.xp)::int as xp,
-              count(*) filter (where e.source = 'lab' and e.ref = any($1::text[]))::int as labs
-       from xp_events e join users u on u.id = e.user_id
-       group by u.id, u.display_name
-       having sum(e.xp) > 0
-       order by xp desc, max(e.at) filter (where e.xp > 0) asc
-       limit 20`,
-      [LABS.map((l) => l.id)],
-    );
-    const ids = rows.map((r) => r.id);
-    const [streaks, badges] = await Promise.all([streaksFor(db, ids), badgeCounts(db, ids)]);
-    return {
-      totalLabs: LABS.length,
-      entries: rows.map((r, i) => ({
-        place: i + 1,
-        displayName: r.display_name,
-        xp: r.xp,
-        labs: r.labs,
-        streak: streaks.get(r.id) ?? 0,
-        badges: badges.get(r.id) ?? 0,
-        ...(({ level, rank }) => ({ level, rank }))(levelFor(r.xp)),
-      })),
-    };
-  });
+  app.get<{ Querystring: { scope?: 'all' | 'school' } }>(
+    '/api/leaderboard',
+    { schema: { querystring: { type: 'object', properties: { scope: { type: 'string', enum: ['all', 'school'] } } } } },
+    async (req, reply) => {
+      const user = requireUser(req, reply);
+      if (!user) return;
+      const school = req.query.scope === 'school' ? config.schoolDomain : null;
+      // XP counts every source; "labs" counts only the graded labs. Hidden accounts never show.
+      const rows = await db.query<{ id: number; display_name: string; xp: number; labs: number }>(
+        `select u.id, u.display_name, sum(e.xp)::int as xp,
+                count(*) filter (where e.source = 'lab' and e.ref = any($1::text[]))::int as labs
+         from xp_events e join users u on u.id = e.user_id
+         where not u.hidden and ($2::text is null or split_part(u.email, '@', 2) = $2)
+         group by u.id, u.display_name
+         having sum(e.xp) > 0
+         order by xp desc, max(e.at) filter (where e.xp > 0) asc
+         limit 20`,
+        [LABS.map((l) => l.id), school],
+      );
+      const ids = rows.map((r) => r.id);
+      const [streaks, badges] = await Promise.all([streaksFor(db, ids), badgeCounts(db, ids)]);
+      return {
+        totalLabs: LABS.length,
+        school: { name: config.schoolName, domain: config.schoolDomain },
+        entries: rows.map((r, i) => ({
+          place: i + 1,
+          displayName: r.display_name,
+          you: r.id === user.id,
+          xp: r.xp,
+          labs: r.labs,
+          streak: streaks.get(r.id) ?? 0,
+          badges: badges.get(r.id) ?? 0,
+          ...(({ level, rank }) => ({ level, rank }))(levelFor(r.xp)),
+        })),
+      };
+    },
+  );
 }

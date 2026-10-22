@@ -15,6 +15,8 @@ export interface Me {
   completions: { labId: string; xpAwarded: number; completedAt: string }[];
   moduleSteps: { moduleId: string; step: 'lesson' | 'trainer' | 'quiz'; xpAwarded: number; completedAt: string }[];
   progress: { today: string; streak: Streak; week: Week; badges: { id: string; earnedAt: string }[] };
+  /** How this account signs in: 'google', 'github' and/or 'password'. */
+  signIn: string[];
 }
 
 export interface Providers {
@@ -87,9 +89,11 @@ export interface SubmitResult {
 
 export interface Leaderboard {
   totalLabs: number;
+  school: { name: string; domain: string };
   entries: {
     place: number;
     displayName: string;
+    you: boolean;
     xp: number;
     labs: number;
     streak: number;
@@ -137,7 +141,9 @@ export const api = {
     call<void>('PUT', `/api/labs/${labId}/attempt`, { log }, keepalive),
   hint: (labId: string) => call<{ hintsUsed: number }>('POST', `/api/labs/${labId}/hint`),
   submit: (labId: string, log: LogEntry[]) => call<SubmitResult>('POST', `/api/labs/${labId}/submit`, { log }),
-  leaderboard: () => call<Leaderboard>('GET', '/api/leaderboard'),
+  leaderboard: (scope: 'all' | 'school' = 'all') => call<Leaderboard>('GET', `/api/leaderboard?scope=${scope}`),
+  rename: (displayName: string) => call<{ user: User }>('PUT', '/api/me/name', { displayName }),
+  deleteAccount: () => call<void>('DELETE', '/api/me', { confirm: 'delete' }),
   sandbox: () => call<{ snapshot: NetworkSnapshot | null }>('GET', '/api/sandbox'),
   saveSandbox: (snapshot: NetworkSnapshot, keepalive = false) =>
     call<void>('PUT', '/api/sandbox', { snapshot }, keepalive),

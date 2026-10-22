@@ -3385,3 +3385,85 @@ input:disabled {
 .prose a {
   color: var(--accent);
 }
+
+/* ---- account and leaderboard filter ---- */
+
+.account {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+}
+
+.account-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.account-name label,
+.account-delete label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 500;
+  font-size: 0.88rem;
+}
+
+.account-name input {
+  width: min(22rem, 100%);
+}
+
+.account-signin {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.account-delete {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+}
+
+.account-delete h3 {
+  font-size: 1rem;
+  color: var(--danger);
+}
+
+.account-delete p {
+  margin: 0;
+}
+
+.account-delete input {
+  width: min(12rem, 100%);
+}
+
+.segmented {
+  display: inline-flex;
+  justify-self: start;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.segmented button {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--border-strong);
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--ink-text);
+}

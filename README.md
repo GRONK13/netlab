@@ -99,6 +99,17 @@ New accounts sign up with Google or GitHub; existing email-and-password accounts
 
 Then restart: `pm2 restart netlab --update-env`. Secrets live only in the server's `.env`, never in git.
 
+## Moderation
+
+Students can rename themselves and delete their accounts from the Progress page. To deal with a rude or impersonating name, run on the server:
+
+```bash
+node scripts/admin.ts find <text>              # accounts whose email or name contains text
+node scripts/admin.ts rename <email|id> <name> # change a display name
+node scripts/admin.ts hide <email|id>          # keep an account off the leaderboard
+node scripts/admin.ts unhide <email|id>
+```
+
 ## Backups
 
 `scripts/backup.ts` dumps the database nightly to `~/backups/netlab/netlab-YYYY-MM-DD.sql.gz` (owner-only permissions, newest 14 kept). Every Sunday `scripts/restore-check.ts` loads the newest backup into a throwaway in-memory database and counts every table's rows, so a broken backup gets noticed. Both log to `.data/backup.log`.

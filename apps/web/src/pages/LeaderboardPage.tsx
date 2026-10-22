@@ -1,16 +1,27 @@
 import { useEffect, useState } from 'react';
-import { api, type Leaderboard, type Me } from '../api.ts';
+import { api, type Leaderboard } from '../api.ts';
 import { days } from '../format.ts';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-export function LeaderboardPage({ me }: { me: Me }) {
+export function LeaderboardPage() {
+  const [scope, setScope] = useState<'all' | 'school'>('all');
   const [board, setBoard] = useState<Leaderboard | null>(null);
+  // Which school the filter means, from the server; kept while the next board loads.
+  const [school, setSchool] = useState<Leaderboard['school'] | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.leaderboard().then(setBoard, () => setError("Couldn't load the leaderboard."));
-  }, []);
+    setBoard(null);
+    setError('');
+    api.leaderboard(scope).then(
+      (b) => {
+        setBoard(b);
+        setSchool(b.school);
+      },
+      () => setError("Couldn't load the leaderboard."),
+    );
+  }, [scope]);
 
   return (
     <div className="page">
@@ -19,11 +30,30 @@ export function LeaderboardPage({ me }: { me: Me }) {
         <h1>Leaderboard</h1>
         <p className="muted">Top 20 by XP. Using fewer hints earns more XP per lab. Streak is days of practice in a row; badges are for show.</p>
       </header>
+      {school && (
+        <div className="segmented" role="group" aria-label="Who to show">
+          <button type="button" aria-pressed={scope === 'all'} onClick={() => setScope('all')}>
+            Everyone
+          </button>
+          <button
+            type="button"
+            aria-pressed={scope === 'school'}
+            onClick={() => setScope('school')}
+            title={`Accounts with an @${school.domain} email`}
+          >
+            {school.name} only
+          </button>
+        </div>
+      )}
       {error && <p className="error">{error}</p>}
       {!board && !error && <p className="muted">Loading…</p>}
       {board && board.entries.length === 0 && (
         <div className="panel empty-state">
-          <p>No one has finished a lab yet. Be the first on the board.</p>
+          <p>
+            {scope === 'school'
+              ? `No ${board.school.name} students have earned XP yet. Be the first on the board.`
+              : 'No one has finished a lab yet. Be the first on the board.'}
+          </p>
         </div>
       )}
       {board && board.entries.length > 0 && (
@@ -42,7 +72,7 @@ export function LeaderboardPage({ me }: { me: Me }) {
             </thead>
             <tbody>
               {board.entries.map((e) => (
-                <tr key={e.place} className={e.displayName === me.user.displayName ? 'me' : undefined}>
+                <tr key={e.place} className={e.you ? 'me' : undefined}>
                   <td className={`place mono${e.place <= 3 ? ' top' : ''}`}>{pad(e.place)}</td>
                   <td className="strong">{e.displayName}</td>
                   <td className="hide-sm">

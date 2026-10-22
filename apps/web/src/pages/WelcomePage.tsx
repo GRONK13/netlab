@@ -61,7 +61,7 @@ export function WelcomePage({ onSignedIn }: { onSignedIn: () => Promise<void> })
             <label>
               Your name on the leaderboard
               <input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={40} required autoFocus />
-              <span className="hint">Everyone can see it. A nickname is fine.</span>
+              <span className="hint">Everyone can see it. A nickname is fine, and you can change it later.</span>
             </label>
             {error && (
               <p className="error" role="alert">

@@ -59,10 +59,15 @@ export function PrivacyPage({ signedIn }: { signedIn: boolean }) {
           after two weeks.
         </p>
 
-        <h2>Deleting your account, and questions</h2>
+        <h2>Deleting your account</h2>
         <p>
-          To delete your account and everything in it, or to ask anything about your data, email{' '}
-          <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+          Delete your account any time from the Account section of your Progress page. Your account and everything in
+          it are erased at once.
+        </p>
+
+        <h2>Questions</h2>
+        <p>
+          Anything about your data: email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
         </p>
       </section>
     </div>

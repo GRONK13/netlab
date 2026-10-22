@@ -44,6 +44,31 @@ test('a new student signs up with a provider and chooses a display name', async 
   await expect(page.getByRole('heading', { name: `Hello, Ollie${stamp}.` })).toBeVisible();
 });
 
+test('a student renames themselves, then deletes their account', async ({ page }) => {
+  const student = `Renamer${stamp}`;
+  await register(page, student);
+  await nav(page, 'Progress').click();
+  const name = page.getByLabel('Your name on the leaderboard');
+  await name.fill(`Ren${stamp}`);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await nav(page, 'Home').click();
+  await expect(page.getByRole('heading', { name: `Hello, Ren${stamp}.` })).toBeVisible();
+
+  await nav(page, 'Progress').click();
+  const remove = page.getByRole('button', { name: 'Delete my account' });
+  await expect(remove).toBeDisabled();
+  await page.getByLabel('Type delete to confirm').fill('delete');
+  await remove.click();
+  await expect(page.getByRole('heading', { name: 'Configure real networks. Get graded on the spot.' })).toBeVisible();
+
+  // The account is gone: its email and password no longer sign in.
+  await page.getByLabel('Email').fill(`${student.toLowerCase()}@usc.edu.ph`);
+  await page.getByLabel('Password').fill(`e2e-password-${stamp}`);
+  await page.getByRole('button', { name: 'Sign in with email' }).click();
+  await expect(page.getByRole('alert')).toContainText('Wrong email or password.');
+});
+
 test('health check responds', async ({ request }) => {
   const res = await request.get('/api/health');
   expect(res.ok()).toBe(true);

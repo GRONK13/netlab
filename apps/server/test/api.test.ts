@@ -7,6 +7,7 @@ import { SOLUTIONS } from '../../../packages/labs/test/solutions.ts';
 import { buildApp } from '../src/app.ts';
 import { loadConfig } from '../src/config.ts';
 import { connect, manilaDay, migrate, type Db } from '../src/db.ts';
+import { findUsers, renameUser, setHidden } from '../src/admin.ts';
 import { backfillBadges } from '../src/progress.ts';
 import { githubIdentity, googleIdentity, type Identity, type OAuthProvider } from '../src/oauth.ts';
 
@@ -16,7 +17,12 @@ let app: FastifyInstance;
 beforeAll(async () => {
   db = await connect();
   await migrate(db);
-  app = await buildApp(db, { ...loadConfig({}), allowedEmailDomains: ['school.edu'], webDist: '/nonexistent' });
+  app = await buildApp(db, {
+    ...loadConfig({}),
+    allowedEmailDomains: ['school.edu'],
+    schoolDomain: 'school.edu',
+    webDist: '/nonexistent',
+  });
 });
 
 afterAll(async () => {
@@ -710,5 +716,99 @@ describe('provider identities', () => {
     expect(loadConfig(ready).emailSignup).toBe(false);
     expect(loadConfig({ ...ready, EMAIL_SIGNUP: '1' }).emailSignup).toBe(true);
     expect(loadConfig({ GITHUB_CLIENT_ID: 'id' }).github).toBeUndefined();
+  });
+});
+
+describe('accounts and moderation', () => {
+  let cookie: string;
+  let id: number;
+  beforeAll(async () => {
+    const r = await register('kim@school.edu', 'Kim', '10.0.0.5');
+    cookie = r.cookie;
+    id = r.res.json().user.id;
+    await post('/api/labs/switch-basics/submit', cookie, { log: SOLUTIONS['switch-basics'] });
+  });
+
+  const board = async (scope?: string, who = cookie) =>
+    (await app.inject({ method: 'GET', url: `/api/leaderboard${scope ? `?scope=${scope}` : ''}`, headers: { cookie: who } })).json();
+  const names = (b: { entries: { displayName: string }[] }) => b.entries.map((e) => e.displayName);
+  const put = (url: string, payload: unknown, who = cookie) =>
+    app.inject({ method: 'PUT', url, headers: { cookie: who }, payload: payload as object });
+
+  it('renames, checking the name like sign-up does', async () => {
+    expect((await put('/api/me/name', { displayName: 'K' })).statusCode).toBe(400);
+    expect((await put('/api/me/name', { displayName: 'x'.repeat(41) })).statusCode).toBe(400);
+    const res = await put('/api/me/name', { displayName: '  Kim Lee  ' });
+    expect(res.json().user.displayName).toBe('Kim Lee');
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json().user.displayName).toBe('Kim Lee');
+    expect(names(await board())).toContain('Kim Lee');
+    expect((await put('/api/me/name', { displayName: 'Kim' }, '')).statusCode).toBe(401);
+  });
+
+  it('marks your own row, and never sends emails', async () => {
+    const b = await board();
+    expect(b.entries.filter((e: { you: boolean }) => e.you).map((e: { displayName: string }) => e.displayName)).toEqual(['Kim Lee']);
+    expect(JSON.stringify(b)).not.toContain('@');
+  });
+
+  it('filters to the school domain', async () => {
+    // Someone from outside the school, with XP.
+    const [outsider] = await db.query<{ id: number }>(
+      `insert into users (email, display_name, password_hash) values ('pat@gmail.com', 'Pat Public', null) returning id`,
+    );
+    await db.query(`insert into completions (user_id, lab_id, xp_awarded, hints_used) values ($1, 'switch-basics', 100, 0)`, [outsider!.id]);
+    expect(names(await board('all'))).toContain('Pat Public');
+    const school = await board('school');
+    expect(school.school).toEqual({ name: 'USC', domain: 'school.edu' });
+    expect(names(school)).not.toContain('Pat Public');
+    expect(names(school)).toContain('Kim Lee');
+    expect((await app.inject({ method: 'GET', url: '/api/leaderboard?scope=nope', headers: { cookie } })).statusCode).toBe(400);
+  });
+
+  it('lets the admin find, rename, hide and unhide an account', async () => {
+    expect((await findUsers(db, 'KIM@')).map((u) => u.id)).toEqual([id]);
+    expect(await renameUser(db, 'kim@school.edu', 'Kim L')).toMatchObject({ id, display_name: 'Kim L' });
+    await expect(renameUser(db, String(id), 'K')).rejects.toThrow('at least 2 characters');
+    await expect(setHidden(db, 'nobody@school.edu', true)).rejects.toThrow('No account matches');
+
+    await setHidden(db, String(id), true);
+    expect(names(await board())).not.toContain('Kim L');
+    // A hidden account still works.
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(200);
+    await setHidden(db, 'kim@school.edu', false);
+    expect(names(await board())).toContain('Kim L');
+  });
+
+  it('deletes the account and everything in it', async () => {
+    // Progress in every table that belongs to a student.
+    await put('/api/sandbox', { snapshot: Network.fromSnapshot({ version: 1, topology: { devices: [], links: [] }, configs: {} }).snapshot() });
+    await post('/api/modules/ip-addressing/lesson', cookie);
+    const round = (await post('/api/trainer/subnetting/start', cookie)).json();
+    await post(`/api/trainer/rounds/${round.roundId}/finish`, cookie, { answers: round.problems.map(solve) });
+    await post('/api/modules/ip-addressing/quiz', cookie);
+    await db.query(`insert into goal_weeks (user_id, week, goal) values ($1, '2026-10-19', 3)`, [id]);
+    await db.query(`insert into oauth_accounts (provider, subject, user_id) values ('google', 'kim-1', $1)`, [id]);
+
+    const tables = [
+      'sessions', 'attempts', 'completions', 'sandboxes', 'module_steps', 'trainer_rounds',
+      'quiz_attempts', 'practice_days', 'goal_weeks', 'badges', 'oauth_accounts',
+    ];
+    const counts = async () =>
+      Object.fromEntries(
+        await Promise.all(
+          tables.map(async (t) => [t, (await db.query<{ n: number }>(`select count(*)::int as n from ${t} where user_id = $1`, [id]))[0]!.n]),
+        ),
+      );
+    for (const [t, n] of Object.entries(await counts())) expect(n, t).toBeGreaterThan(0);
+
+    const del = (payload: unknown) =>
+      app.inject({ method: 'DELETE', url: '/api/me', headers: { cookie }, payload: payload as object });
+    expect((await del({})).statusCode).toBe(400);
+    expect((await del({ confirm: 'yes' })).statusCode).toBe(400);
+    expect((await del({ confirm: 'delete' })).statusCode).toBe(204);
+
+    expect(Object.values(await counts()).every((n) => n === 0)).toBe(true);
+    expect(await db.query('select 1 from users where id = $1', [id])).toEqual([]);
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(401);
   });
 });

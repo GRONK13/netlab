@@ -3,6 +3,7 @@ import { hash, verify } from '@node-rs/argon2';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
+import { displayNameProblem } from './names.ts';
 
 export const SESSION_COOKIE = 'netlab_sid';
 const SESSION_DAYS = 30;
@@ -29,11 +30,6 @@ export function emailAllowed(email: string, domains: string[]): boolean {
   if (domains.length === 0) return true;
   const domain = email.slice(email.lastIndexOf('@') + 1);
   return domains.includes(domain);
-}
-
-/** Problem with a display name, or null if it's fine. */
-export function displayNameProblem(name: string): string | null {
-  return name.length < 2 ? 'Enter a display name of at least 2 characters.' : null;
 }
 
 export async function startSession(db: Db, reply: FastifyReply, userId: number, config: Config): Promise<void> {

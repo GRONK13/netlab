@@ -61,7 +61,7 @@ export async function buildApp(db: Db, config: Config, options: AppOptions = {})
 
   authRoutes(app, db, config);
   oauthRoutes(app, db, config, options.providers ?? providersFrom(config));
-  apiRoutes(app, db);
+  apiRoutes(app, db, config);
   trainerRoutes(app, db);
   moduleRoutes(app, db);
   progressRoutes(app, db);

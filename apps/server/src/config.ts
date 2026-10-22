@@ -24,7 +24,8 @@ export interface Config {
   github?: OAuthApp;
   /** New accounts may register with email and password. */
   emailSignup: boolean;
-  /** Email domain of the school, for the leaderboard's "USC only" filter. */
+  /** The school whose students the leaderboard can filter to: its short name and email domain. */
+  schoolName: string;
   schoolDomain: string;
   /** Built web app to serve, if present. */
   webDist: string;
@@ -59,6 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // Email sign-up stays open until a provider can take over: there's no way to verify
     // emails or reset passwords without a mail server. EMAIL_SIGNUP=1 or 0 overrides.
     emailSignup: env.EMAIL_SIGNUP ? env.EMAIL_SIGNUP === '1' : !production || (!google && !github),
+    schoolName: env.SCHOOL_NAME ?? 'USC',
     schoolDomain: (env.SCHOOL_DOMAIN ?? 'usc.edu.ph').toLowerCase(),
     webDist: `${root}apps/web/dist`,
   };
